@@ -40,3 +40,7 @@
 # debug information files
 *.dwo
 build/
+vue_working_folder/
+spiffs/
+!vue_working_folder/.gitkeep
+!spiffs/.gitkeep
