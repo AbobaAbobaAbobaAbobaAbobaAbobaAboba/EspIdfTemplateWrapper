@@ -1,4 +1,5 @@
 #include "spiffs_wrapper.hpp"
+#include "../common/common.hpp"
 namespace SPIFFS {
 void SpiffsWrapper::printFiles() {
 #ifdef ENABLE_SAFENET

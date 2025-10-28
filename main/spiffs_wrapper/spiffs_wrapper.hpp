@@ -1,6 +1,6 @@
 #ifndef SPIFFS_WRAPPER_HPP
 #define SPIFFS_WRAPPER_HPP
-#include "../common/common.hpp"
+
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_spiffs.h"

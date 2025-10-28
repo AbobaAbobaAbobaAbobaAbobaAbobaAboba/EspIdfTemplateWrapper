@@ -4,10 +4,15 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
+#include "gpio_wrapper/gpio_wrapper.hpp"
 #include "nvs_flash.h"
+#include "spiffs_wrapper/spiffs_wrapper.hpp"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <iostream>
+#define LED_PIN GPIO_NUM_2  // Example LED pin
+inline std::shared_ptr<GPIO::GpioWrapper> led;
+
 static constexpr int WIFI_CONNECTED_BIT = BIT0;
 static constexpr int WIFI_FAIL_BIT = BIT1;
 
@@ -24,6 +29,13 @@ struct SystemStatus {
     inline static bool wifi_status_ = false;
 };
 
+struct AssignedIp {
+    inline static std::string getCurrentIp() { return ip_address; }
+
+  private:
+    friend class WifiHandler;
+    inline static std::string ip_address;
+};
 constexpr esp_log_config_t kInfoLogConfig = {
   .opts = {
     .log_level = ESP_LOG_INFO,
@@ -61,8 +73,12 @@ inline void initializeSystem() {
     } else {
         SystemStatus::system_status_ = true;
     }
-
+    SPIFFS::SpiffsWrapper::init();
     initializeWifiStack();
+    led = GPIO::GpioWrapper::getInstance(LED_PIN);
+    if (led->isConfigured() == false) {
+        led->configure(GPIO_MODE_OUTPUT, GPIO::PullMode::NONE);
+    }
 }
 
 inline void initializeWifiStack() {

@@ -170,6 +170,7 @@ void WifiHandler::handleGotIp(ip_event_got_ip_t* event_data) {
       "WIFI_HANDLER",
       "Connected to AP. Got IP: %s \n",
       ip_str.c_str());
+    AssignedIp::ip_address = ip_str;
 }
 
 void WifiHandler::resetIpString() {
