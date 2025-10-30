@@ -1,15 +1,13 @@
-#include "gpio_wrapper.hpp"
-#include "../common/common.hpp"
-namespace GPIO {
-std::array<std::weak_ptr<GpioWrapper>, kPinCount> GpioWrapper::gpio_instances_ = {};
+#include "gpio_basic_wrapper.hpp"
+
 // Constructor: Initialize GPIO with specified mode and optional pull resistors
-GpioWrapper::GpioWrapper(gpio_num_t pin, gpio_mode_t mode, PullMode pull_mode)
+GpioBasicWrapper::GpioBasicWrapper(gpio_num_t pin, gpio_mode_t mode, PullMode pull_mode)
     : pin_(pin) {
     configurePin(mode, pull_mode);
 }
 
 // Destructor: Reset GPIO to safe state
-GpioWrapper::~GpioWrapper() {
+GpioBasicWrapper::~GpioBasicWrapper() {
 #ifdef ENABLE_SAFENET
     if (!GPIO_IS_VALID_GPIO(pin_)) {
         esp_log(kErrorLogConfig, "GPIO_WRAPPER", "Invalid GPIO pin: %d", pin_);
@@ -19,16 +17,16 @@ GpioWrapper::~GpioWrapper() {
     esp_log(kInfoLogConfig, "GPIO_WRAPPER", "GPIO %d reset", pin_);
 }
 
-std::shared_ptr<GpioWrapper> GpioWrapper::getInstance(gpio_num_t pin) {
+std::shared_ptr<GpioBasicWrapper> GpioBasicWrapper::getInstance(gpio_num_t pin) {
 #ifdef ENABLE_SAFENET
     if (!GPIO_IS_VALID_GPIO(pin)) {
         throw std::invalid_argument("Invalid GPIO pin: " + std::to_string(pin));
     }
 #endif
-    if (gpio_instances_[pin].expired()) {
+    if (expired(pin)) {
         esp_log(kErrorLogConfig, "GPIO_WRAPPER", "Creating new pin");
         std::lock_guard<std::recursive_mutex> lock(mutex_);
-        auto ptr_stump = std::shared_ptr<GpioWrapper>(new GpioWrapper(pin));
+        auto ptr_stump = std::shared_ptr<GpioBasicWrapper>(new GpioBasicWrapper(pin));
         gpio_instances_[pin] = ptr_stump;
         return ptr_stump;
     }
@@ -37,7 +35,7 @@ std::shared_ptr<GpioWrapper> GpioWrapper::getInstance(gpio_num_t pin) {
 }
 
 // Write value to GPIO (HIGH=1, LOW=0)
-esp_err_t GpioWrapper::write(int level) {
+esp_err_t GpioBasicWrapper::write(int level) {
 #ifdef ENABLE_SAFENET
     if (!GPIO_IS_VALID_GPIO(pin_)) {
         throw std::invalid_argument("Invalid GPIO pin: " + std::to_string(pin_));
@@ -61,7 +59,7 @@ esp_err_t GpioWrapper::write(int level) {
 }
 
 // Read value from GPIO (returns 0 or 1)
-int GpioWrapper::read() {
+int GpioBasicWrapper::read() {
 #ifdef ENABLE_SAFENET
     if (!GPIO_IS_VALID_GPIO(pin_)) {
         throw std::invalid_argument("Invalid GPIO pin: " + std::to_string(pin_));
@@ -76,15 +74,15 @@ int GpioWrapper::read() {
     return gpio_get_level(pin_);
 }
 
-[[nodiscard]] bool GpioWrapper::isConfigured() const {
+[[nodiscard]] bool GpioBasicWrapper::isConfigured() const {
     return is_configured_;
 }
 
-[[nodiscard]] gpio_config_t GpioWrapper::getConfiguration() {
+[[nodiscard]] gpio_config_t GpioBasicWrapper::getConfiguration() {
     return io_conf_;
 }
 
-void GpioWrapper::configure(gpio_mode_t mode, PullMode pull_mode) {
+void GpioBasicWrapper::configure(gpio_mode_t mode, PullMode pull_mode) {
 #ifdef ENABLE_SAFENET
     if (is_configured_) {
         throw std::runtime_error(
@@ -94,7 +92,7 @@ void GpioWrapper::configure(gpio_mode_t mode, PullMode pull_mode) {
     configurePin(mode, pull_mode);
 }
 
-void GpioWrapper::configurePin(gpio_mode_t mode, PullMode pull_mode) {
+void GpioBasicWrapper::configurePin(gpio_mode_t mode, PullMode pull_mode) {
 #ifdef ENABLE_SAFENET
     if (!GPIO_IS_VALID_GPIO(pin_)) {
         throw std::invalid_argument("Invalid GPIO pin: " + std::to_string(pin_));
@@ -138,4 +136,3 @@ void GpioWrapper::configurePin(gpio_mode_t mode, PullMode pull_mode) {
       pin_,
       mode == GPIO_MODE_OUTPUT ? "output" : "input");
 }
-}  // namespace GPIO

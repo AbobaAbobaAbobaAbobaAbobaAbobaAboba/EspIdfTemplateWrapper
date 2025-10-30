@@ -1,22 +1,22 @@
 #include "json_wrapper.hpp"
 JsonWrapper::JsonWrapper(const std::string& str) {
-    cJSON* root = cJSON_Parse(str.c_str());
-    std::cout << "aboba constructor invoked!" << std::endl;
-    if (root == nullptr) {
+    json_ = cJSON_Parse(str.c_str());
+    std::cout << "aboba constructor 1 invoked!" << std::endl;
+    if (json_ == nullptr) {
         throw std::runtime_error("Failed to parse JSON string");
     }
 }
 JsonWrapper::JsonWrapper(const char* str) {
-    cJSON* root = cJSON_Parse(str);
-    std::cout << "aboba constructor invoked!" << std::endl;
-    if (root == nullptr) {
+    json_ = cJSON_Parse(str);
+    std::cout << "aboba constructor 2 invoked!" << std::endl;
+    if (json_ == nullptr) {
         throw std::runtime_error("Failed to parse JSON string");
     }
 }
 JsonWrapper::JsonWrapper(const uint8_t* str) {
-    cJSON* root = cJSON_Parse(reinterpret_cast<const char*>(str));
-    std::cout << "aboba constructor invoked!" << std::endl;
-    if (root == nullptr) {
+    json_ = cJSON_Parse(reinterpret_cast<const char*>(str));
+    std::cout << "aboba constructor 3 invoked!" << std::endl;
+    if (json_ == nullptr) {
         throw std::runtime_error("Failed to parse JSON string");
     }
 }

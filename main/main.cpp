@@ -1,17 +1,14 @@
 
 #include "common/common.hpp"
-#include "gpio_wrapper/gpio_wrapper.hpp"
-#include "http_wrapper/http_server_wrapper.hpp"
-#include "spiffs_wrapper/spiffs_wrapper.hpp"
-#include "wifi_wrapper/wifi_handler.hpp"
+#include "core/core.hpp"
 #include <driver/gpio.h>
 #include <iostream>
 
 static void blinkLED(int interval = 100) {
-    led->write(1);
-    vTaskDelay(pdMS_TO_TICKS(interval));
-    led->write(0);
-    vTaskDelay(pdMS_TO_TICKS(interval));
+    // led->write(1);
+    // vTaskDelay(pdMS_TO_TICKS(interval));
+    // led->write(0);
+    // vTaskDelay(pdMS_TO_TICKS(interval));
 }
 extern "C" void app_main(void) {
 #ifdef ENABLE_SAFENET
@@ -27,19 +24,13 @@ extern "C" void app_main(void) {
             return;
         }
 
-        WifiHandler wifi_handler;
-        wifi_handler.connect("kgsn2g", "kbtaPR45ka$", 20);
-        wifi_handler.waitForConnected();
-        HttpServerWrapper http_server;
-        http_server.startWebserver();
+        Core core;
         while (true) {
             std::cout << "vremya tyanut rezinu..." << std::endl;
             vTaskDelay(pdMS_TO_TICKS(1000));
         };
 #ifdef ENABLE_SAFENET
     } catch (const std::exception& e) {
-#endif
-
         while (true) {
             esp_log(
               kErrorLogConfig,
@@ -54,7 +45,46 @@ extern "C" void app_main(void) {
             blinkLED(100);
             vTaskDelay(pdMS_TO_TICKS(1000));
         };
-#ifdef ENABLE_SAFENET
+    } catch (const char* msg) {
+        while (true) {
+            esp_log(
+              kErrorLogConfig,
+              "EXCEPTION",
+              "%s"
+              "\n",
+              msg);
+            blinkLED(100);
+            blinkLED(100);
+            blinkLED(100);
+            blinkLED(100);
+            blinkLED(100);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        };
+    } catch (int code) {
+        while (true) {
+            esp_log(
+              kErrorLogConfig,
+              "EXCEPTION",
+              "%d"
+              "\n",
+              code);
+            blinkLED(100);
+            blinkLED(100);
+            blinkLED(100);
+            blinkLED(100);
+            blinkLED(100);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        };
+    } catch (...) {
+        while (true) {
+            esp_log(kErrorLogConfig, "EXCEPTION", "Unknown exception occurred\n");
+            blinkLED(100);
+            blinkLED(100);
+            blinkLED(100);
+            blinkLED(100);
+            blinkLED(100);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        };
     }
 #endif
 }

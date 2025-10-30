@@ -15,7 +15,10 @@ idf_component_register(SRCS "main.cpp"
   "http_wrapper/http_server_wrapper.cpp"
    "spiffs_wrapper/spiffs_wrapper.cpp"
     "json_wrapper/json_wrapper.cpp"
-    "gpio_wrapper/gpio_wrapper.cpp"
+    "gpio_wrappers/gpio_basic_wrapper/gpio_basic_wrapper.cpp"
+    "websocket_handler/websocket_handler.cpp"
+    "core/core.cpp"
+    "gpio_wrappers/mcpwm_wrapper/mcpwm_wrapper.cpp"
      REQUIRES ${MY_ESP_COMPONENTS}
 INCLUDE_DIRS ".")
 

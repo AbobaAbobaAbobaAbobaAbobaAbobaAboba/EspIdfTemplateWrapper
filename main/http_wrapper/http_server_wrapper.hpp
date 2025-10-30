@@ -3,6 +3,8 @@
 #include "../common/common.hpp"
 #include "../json_wrapper/json_wrapper.hpp"
 #include "../spiffs_wrapper/spiffs_wrapper.hpp"
+#include "../websocket_handler/websocket_handler.hpp"
+#include "lwip/sockets.h"
 #include <esp_event.h>
 #include <esp_http_server.h>
 #include <esp_log.h>
@@ -14,39 +16,28 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
-enum class AsyncRespCode : int {
-    LED = 0
-};
-
-namespace WSPacket {
-
-#pragma pack(push, 1)
-
-enum class ParseResult : uint8_t {
-    OK,
-    NOT_SUPPORTED,
-    ERROR
-};
-
-struct AsyncRespBase {
-    AsyncRespCode packet_type;
-};
-
-struct AsyncRespLed : public AsyncRespBase {
-    bool state;
-};
-
-struct PacketDescriptor {
-    httpd_req_t* req;
-    JsonWrapper* json_ptr;
-};
-
-#pragma pack(pop)
-
-};  // namespace WSPacket
-
 class HttpServerWrapper {
+    using Callback = std::function<void(std::shared_ptr<WSPacket::PacketBase>, int)>;
+
   public:
+    static_assert(
+      CONFIG_LWIP_MAX_SOCKETS - 4 > 0,
+      "CONFIG_LWIP_MAX_SOCKETS must exceed 4");
+
+    static_assert(
+      CONFIG_LWIP_MAX_ACTIVE_TCP - 4 >= 0,
+      "CONFIG_LWIP_MAX_ACTIVE_TCP must exceed 4");
+
+    static_assert(
+      CONFIG_LWIP_MAX_SOCKETS - CONFIG_LWIP_MAX_ACTIVE_TCP >= 4,
+      "CONFIG_LWIP_MAX_SOCKETS has to have at least 4 TCP sockets");
+
+    /// @brief the max amount of supported sockets. This one is limited by the hardware
+    constexpr static uint8_t kMaxActiveSocketsHard = CONFIG_LWIP_MAX_ACTIVE_TCP - 3;
+
+    /// @brief leaving 1 socket for telling the user to try to connect later
+    constexpr static uint8_t kMaxActiveSocketsSoft = kMaxActiveSocketsHard - 1;
+
     HttpServerWrapper();
     ~HttpServerWrapper();
 
@@ -55,17 +46,20 @@ class HttpServerWrapper {
     HttpServerWrapper(HttpServerWrapper&& other) = delete;
     HttpServerWrapper& operator=(HttpServerWrapper&& other) = delete;
     bool startWebserver(void);
+    void registerCallback(Callback callback) { callback_ = callback; }
+    void invokeCallback(std::shared_ptr<WSPacket::PacketBase> packet, int sockfd);
+    esp_err_t sendPacket(const WSPacket::PacketRespBase* packet, int sockfd);
 
   private:
+    static esp_err_t onSocketOpened(httpd_handle_t hd, int sockfd);
+
+    static void onSocketClosed(httpd_handle_t hd, int sockfd);
+
     static esp_err_t root_get_handler(httpd_req_t* req);
     static esp_err_t post_handler(httpd_req_t* req);
     static esp_err_t generic_get_handler(httpd_req_t* req);
     static esp_err_t config_handler(httpd_req_t* req);
     static esp_err_t websocket_handler(httpd_req_t* req);
-
-    static esp_err_t scheduleAsyncSend(httpd_req_t* req, JsonWrapper* json);
-    static void websocketAsyncSend(void* arg);
-    static httpd_ws_frame_t handleWebsocketSendLed(WSPacket::AsyncRespLed* packet);
 
 #if ENABLE_SAFENET
     inline static std::atomic<bool> exists_ = false;
@@ -78,20 +72,20 @@ class HttpServerWrapper {
     void initPost();
     void initConfig();
     void initWebSocket();
-
     void resetPaths();
     void resetServer();
-    esp_err_t handleWsLED(JsonWrapper* json);
-
-    std::vector<std::string> uri_paths_;
     httpd_handle_t server_;
     httpd_config_t config_;
     httpd_uri_t root_;
     httpd_uri_t post_;
     httpd_uri_t config_uri_;
     httpd_uri_t ws_uri_;
-    std::vector<httpd_uri_t> uri_handlers_;
 
+    Callback callback_;
+    WebsocketHandler ws_handler_;
+    std::vector<std::string> uri_paths_;
+    std::vector<httpd_uri_t> uri_handlers_;
+    std::atomic<uint8_t> active_sockets_ = 0;
     inline static HttpServerWrapper* instance_ = nullptr;
 };
 #endif  // HTTP_SERVER_WRAPPER_HPP

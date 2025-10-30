@@ -1,4 +1,7 @@
 #include "http_server_wrapper.hpp"
+#include "../common/packet_construct.hpp"
+#include "../common/packet_parse.hpp"
+
 void HttpServerWrapper::init() {
     exists_ = true;
 }
@@ -70,16 +73,79 @@ bool HttpServerWrapper::startWebserver(void) {
     return true;
 }
 
-httpd_ws_frame_t HttpServerWrapper::handleWebsocketSendLed(
-  WSPacket::AsyncRespLed* packet) {
-    httpd_ws_frame_t res;
-    led->write(packet->state);
-    memset(&res, 0, sizeof(httpd_ws_frame_t));
+esp_err_t HttpServerWrapper::sendPacket(
+  const WSPacket::PacketRespBase* packet,
+  int sockfd) {
+    switch (packet->packet_type) {
+        case WSPacket::PacketType::LED: {
+            auto [frame, json] = WSPacket::constructFrame(
+              *static_cast<const WSPacket::PacketRespLED*>(packet));
 
-    res.payload = reinterpret_cast<uint8_t*>(packet->state);
-    res.len = sizeof(decltype(packet));
-    res.type = HTTPD_WS_TYPE_TEXT;
-    return res;
+            std::shared_ptr<WSPacket::PacketDescriptor> descriptor =
+              std::make_shared<WSPacket::PacketDescriptor>(
+                frame,
+                server_,
+                sockfd,
+                json);
+            ws_handler_.send(descriptor);
+            return ESP_OK;
+        }
+        default: {
+            return ESP_FAIL;
+        }
+    }
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t HttpServerWrapper::onSocketOpened(httpd_handle_t hd, int sockfd) {
+    ++instance_->active_sockets_;
+    if (instance_->active_sockets_ >= kMaxActiveSocketsSoft) {
+        static constexpr char resp[] =
+          "HTTP/1.1 503 Service Unavailable\r\n"
+          "Content-Type: text/plain\r\n"
+          "Connection: close\r\n"
+          "Retry-After: 5\r\n"  // optional: tell client to retry after 5s
+          "\r\n"
+          "The amount of clients is maxed out. Try to connect later.\r\n";
+
+        write(sockfd, resp, strlen(resp));
+        lwip_close(sockfd);
+        esp_log(
+          kErrorLogConfig,
+          "HTTP_SERVER",
+          "Clients are maxed out. Dropping the connection...");
+        return ESP_FAIL;
+    }
+
+    esp_log(
+      kInfoLogConfig,
+      "HTTP_SERVER",
+      "Socket %d opened (total: %d)",
+      sockfd,
+      instance_->active_sockets_.load());
+
+    return ESP_OK;
+}
+
+void HttpServerWrapper::onSocketClosed(httpd_handle_t hd, int sockfd) {
+    --instance_->active_sockets_;
+    esp_log(
+      kInfoLogConfig,
+      "HTTP_SERVER",
+      "Socket %d CLOSED (total: %d)",
+      sockfd,
+      instance_->active_sockets_.load());
+}
+
+void HttpServerWrapper::invokeCallback(
+  std::shared_ptr<WSPacket::PacketBase> packet,
+  int sockfd) {
+#ifdef ENABLE_SAFENET
+    if (packet == nullptr) {
+        throw std::runtime_error("Packet pointer is null");
+    }
+#endif
+    callback_(packet, sockfd);
 }
 
 esp_err_t HttpServerWrapper::root_get_handler(httpd_req_t* req) {
@@ -204,6 +270,7 @@ esp_err_t HttpServerWrapper::config_handler(httpd_req_t* req) {
 }
 
 esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
+    esp_log(kInfoLogConfig, "HTTP_SERVER", "Handler invoked with %d", req->method);
     if (req->method == HTTP_GET) {
         esp_log(
           kInfoLogConfig,
@@ -213,7 +280,9 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
     }
 
     httpd_ws_frame_t ws_pkt;
+
     memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+
     ws_pkt.type = HTTPD_WS_TYPE_TEXT;
 
     esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, 0);
@@ -231,6 +300,7 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
         esp_log(kInfoLogConfig, "HTTP_SERVER", "Received empty ws packet");
         return ESP_OK;
     }
+
     std::unique_ptr<uint8_t[]> buf(new uint8_t[ws_pkt.len + 1]);
     buf[ws_pkt.len] = '\0';
     ws_pkt.payload = buf.get();
@@ -265,118 +335,26 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
         throw std::runtime_error("HttpServerWrapper instance is null");
     }
 #endif
-    JsonWrapper* json = new JsonWrapper(ws_pkt.payload);
 
-    auto packet_type = json->getNumber("packet_type");
+    std::shared_ptr<JsonWrapper> json = std::make_shared<JsonWrapper>(ws_pkt.payload);
 
-    if (!packet_type.has_value()) {
-        esp_log(kErrorLogConfig, "HTTP_SERVER", "packet_type doesnt hold a value!");
-        delete json;
+    std::shared_ptr<WSPacket::PacketBase> packet = WSPacket::Parser::parse(*json);
+    if (!packet) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    switch (static_cast<AsyncRespCode>(packet_type.value())) {
-        case AsyncRespCode::LED: {
-            esp_err_t err = instance_->handleWsLED(json);
-            if (err != ESP_OK) {
-                esp_log(
-                  kErrorLogConfig,
-                  "HTTP_SERVER",
-                  "Failed to handle LED websocket message");
-                delete json;
-                return err;
-            }
-            break;
-        }
-        default:
-            esp_log(
-              kErrorLogConfig,
-              "HTTP_SERVER",
-              "Unknown packet type received: %d",
-              static_cast<int>(packet_type.value()));
-            delete json;
-            return ESP_ERR_NOT_SUPPORTED;
-    }
+    instance_->invokeCallback(packet, httpd_req_to_sockfd(req));
 
-    return scheduleAsyncSend(req, json);
-}
-
-esp_err_t HttpServerWrapper::scheduleAsyncSend(httpd_req_t* req, JsonWrapper* json) {
-    WSPacket::PacketDescriptor* resp_arg = new WSPacket::PacketDescriptor{req, json};
-    if (req->handle == instance_->server_) {
-        esp_log(
-          kErrorLogConfig,
-          "HTTP_SERVER",
-          "aboba they're the focking same mate!!");
-    }
-    return httpd_queue_work(req->handle, websocketAsyncSend, resp_arg);
-}
-
-void HttpServerWrapper::websocketAsyncSend(void* arg) {
-    static std::array<int, CONFIG_LWIP_MAX_LISTENING_TCP> client_fds;
-    WSPacket::PacketDescriptor* descriptor =
-      static_cast<WSPacket::PacketDescriptor*>(arg);
-
-    static auto cleanup = [&]() {
-        delete descriptor->json_ptr;
-        delete descriptor;
-    };
-    httpd_ws_frame_t ws_pkt;
-
-    int target_fd = httpd_req_to_sockfd(descriptor->req);
-
-    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-
-    char* buff = descriptor->json_ptr->serialize();
-    ws_pkt.payload = reinterpret_cast<uint8_t*>(buff);
-    ws_pkt.len = strlen(buff);
-    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
-
-    // httpd_get_client_list takes max_fds as a pointer
-    // reads its value and then
-    // stores THE ACTUAL number of fds in the same variable
-    size_t max_fds = client_fds.size();
-    esp_err_t ret =
-      httpd_get_client_list(instance_->server_, &max_fds, client_fds.data());
-
-    if (ret != ESP_OK) {
-        cleanup();
-        return;
-    }
-
-    bool isFound = false;
-    for (int i = 0; i < max_fds; i++) {
-        if (client_fds[i] != target_fd) {
-            continue;
-        }
-        int client_info = httpd_ws_get_fd_info(instance_->server_, client_fds[i]);
-        if (client_info == HTTPD_WS_CLIENT_WEBSOCKET) {
-            httpd_ws_send_frame_async(descriptor->req->handle, client_fds[i], &ws_pkt);
-            isFound = true;
-            break;
-        }
-    }
-    cleanup();
-    if (!isFound) {
-        throw std::runtime_error("Socked fd not found, but async was invoked!");
-    }
+    return ESP_OK;
 }
 
 void HttpServerWrapper::resetServer() {
     server_ = NULL;
     config_ = HTTPD_DEFAULT_CONFIG();
     config_.max_uri_handlers = 16;
-}
-
-esp_err_t HttpServerWrapper::handleWsLED(JsonWrapper* json) {
-    auto state_opt = json->getBool("state");
-    if (state_opt == std::nullopt) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    bool val = state_opt.value();
-    led->write(val);
-    json->setBool("state", val);
-    return ESP_OK;
+    config_.max_open_sockets = kMaxActiveSocketsHard;
+    config_.open_fn = &HttpServerWrapper::onSocketOpened;
+    config_.close_fn = &HttpServerWrapper::onSocketClosed;
 }
 
 bool HttpServerWrapper::initServer() {
