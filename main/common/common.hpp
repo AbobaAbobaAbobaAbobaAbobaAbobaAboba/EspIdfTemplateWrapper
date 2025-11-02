@@ -9,7 +9,6 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <iostream>
-#define LED_PIN GPIO_NUM_2  // Example LED pin
 
 static constexpr int WIFI_CONNECTED_BIT = BIT0;
 static constexpr int WIFI_FAIL_BIT = BIT1;

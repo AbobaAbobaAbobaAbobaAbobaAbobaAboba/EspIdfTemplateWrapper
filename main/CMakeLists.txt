@@ -8,6 +8,7 @@ set(MY_ESP_COMPONENTS
     nvs_flash
     spiffs
     fatfs
+    esp_driver_mcpwm
 )
 
 idf_component_register(SRCS "main.cpp"

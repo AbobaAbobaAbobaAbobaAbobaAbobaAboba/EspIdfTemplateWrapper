@@ -8,7 +8,8 @@
 namespace WSPacket {
 
 enum class PacketType : int {
-    LED = 0
+    LED = 0,
+    SERVO = 1
 };
 enum class RespType : int {
     OK = 0,
@@ -40,6 +41,10 @@ struct PacketLED : public PacketBase {
     PacketLED(bool _state) : PacketBase{PacketType::LED}, state{_state} {}
     bool state;
 };
+struct PacketServo : public PacketBase {
+    PacketServo(int _value) : PacketBase{PacketType::SERVO}, value{_value} {}
+    int value;
+};
 // ========
 struct PacketRespBase : public PacketBase {
     PacketRespBase(PacketType _type, RespType _resp)
@@ -58,6 +63,14 @@ struct PacketRespBase : public PacketBase {
 
 struct PacketRespLED : public PacketRespBase {
     PacketRespLED(RespType _resp) : PacketRespBase{PacketType::LED, _resp} {}
+
+    virtual JsonWrapper generateJson() const override {
+        return PacketRespBase::generateJson();
+    }
+};
+
+struct PacketRespServo : public PacketRespBase {
+    PacketRespServo(RespType _resp) : PacketRespBase{PacketType::SERVO, _resp} {}
 
     virtual JsonWrapper generateJson() const override {
         return PacketRespBase::generateJson();

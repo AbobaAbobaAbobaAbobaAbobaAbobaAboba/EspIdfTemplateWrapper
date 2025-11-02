@@ -340,6 +340,7 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
 
     std::shared_ptr<WSPacket::PacketBase> packet = WSPacket::Parser::parse(*json);
     if (!packet) {
+        esp_log(kErrorLogConfig, "HTTP_SERVER", "Failed to parse!");
         return ESP_ERR_INVALID_ARG;
     }
 

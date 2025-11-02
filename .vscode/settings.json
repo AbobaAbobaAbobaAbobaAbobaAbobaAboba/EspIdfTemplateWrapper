@@ -1,12 +1,12 @@
 {
-  "idf.port": "/dev/ttyUSB0",
+  "idf.port": "/dev/ttyUSB1",
   "idf.openOcdConfigs": [
     "board/esp32-wrover-kit-3.3v.cfg"
   ],
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32"
   },
-  "idf.flashType": "UART",
+  "idf.flashType": "JTAG",
   "files.associations": {
     "stdio.h": "c",
     "array": "cpp",
@@ -111,5 +111,6 @@
     "valarray": "cpp",
     "*.inc": "cpp"
   },
-  "idf.pythonInstallPath": "/opt/esp/python_env/idf6.0_py3.12_env/bin/python"
+  "idf.pythonInstallPath": "/opt/esp/python_env/idf6.0_py3.12_env/bin/python",
+  "idf.monitorPort": "/dev/ttyUSB1"
 }

@@ -6,9 +6,11 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
+namespace GPIO {
 class GpioBasicWrapper : public GpioBase {
   public:
-    static std::shared_ptr<GpioBasicWrapper> getInstance(gpio_num_t pin);
+    static std::shared_ptr<GpioBasicWrapper>
+    createPin(gpio_num_t pin, gpio_mode_t mode, PullMode pull_mode);
 
     esp_err_t write(int level);
     int read();
@@ -16,24 +18,21 @@ class GpioBasicWrapper : public GpioBase {
     [[nodiscard]] bool isConfigured() const;
     [[nodiscard]] gpio_config_t getConfiguration();
 
-    void configure(gpio_mode_t mode, PullMode pull_mode);
-
     ~GpioBasicWrapper();
 
   private:
     friend class std::weak_ptr<GpioBasicWrapper>;
     friend class std::shared_ptr<GpioBasicWrapper>;
 
-    GpioBasicWrapper(gpio_num_t pin) : pin_(pin){};
     GpioBasicWrapper(
       gpio_num_t pin,
       gpio_mode_t mode,
       PullMode pull_mode = PullMode::NONE);
 
     void configurePin(gpio_mode_t mode, PullMode pull_mode);
-    gpio_num_t pin_;
+
     gpio_config_t io_conf_ = {};
     std::atomic<bool> is_configured_ = false;
 };
-
+};      // namespace GPIO
 #endif  // GPIO_WRAPPER_HPP

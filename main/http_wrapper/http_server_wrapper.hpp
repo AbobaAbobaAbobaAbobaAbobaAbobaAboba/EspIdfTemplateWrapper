@@ -13,6 +13,7 @@
 #include <nvs_flash.h>
 #include <atomic>
 #include <exception>
+#include <functional>
 #include <string>
 #include <unordered_set>
 #include <vector>

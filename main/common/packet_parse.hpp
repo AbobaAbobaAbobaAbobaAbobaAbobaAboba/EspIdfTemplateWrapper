@@ -17,6 +17,20 @@ std::shared_ptr<PacketBase> parseLED(const JsonWrapper& json) {
     return packet;
 }
 
+std::shared_ptr<PacketBase> parseServo(const JsonWrapper& json) {
+    auto state_opt = json.getNumber("value");
+
+#ifdef ENABLE_SAFENET
+    if (state_opt == std::nullopt) {
+        return {};
+    }
+#endif
+
+    std::shared_ptr<PacketBase> packet =
+      std::make_shared<PacketServo>(state_opt.value());
+    return packet;
+}
+
 std::shared_ptr<PacketBase> parse(const JsonWrapper& json) {
     auto packet_type = json.getNumber("packet_type");
 
@@ -29,6 +43,9 @@ std::shared_ptr<PacketBase> parse(const JsonWrapper& json) {
     switch (type) {
         case PacketType::LED: {
             return parseLED(json);
+        }
+        case PacketType::SERVO: {
+            return parseServo(json);
         }
         default: {
             return {};

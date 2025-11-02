@@ -3,30 +3,43 @@
 #include "core/core.hpp"
 #include <driver/gpio.h>
 #include <iostream>
-
 static void blinkLED(int interval = 100) {
-    // led->write(1);
-    // vTaskDelay(pdMS_TO_TICKS(interval));
-    // led->write(0);
-    // vTaskDelay(pdMS_TO_TICKS(interval));
+    global::led_pin->write(1);
+    vTaskDelay(pdMS_TO_TICKS(interval));
+    global::led_pin->write(0);
+    vTaskDelay(pdMS_TO_TICKS(interval));
 }
-extern "C" void app_main(void) {
+static void initBlink() {
+    for (int i = 0; i < 10; ++i) {
+        blinkLED(50);
+    }
+}
+static void verifySystem() {
+    if (SystemStatus::getSystemStatus() != true) {
+        esp_log(kErrorLogConfig, "FATAL", "System initialization failed!\n");
+        while (true) {
+            blinkLED(100);
+        }
+        return;
+    }
+}
+void true_main() {
 #ifdef ENABLE_SAFENET
     try {
 #endif
-        initializeSystem();
 
-        if (SystemStatus::getSystemStatus() != true) {
-            esp_log(kErrorLogConfig, "FATAL", "System initialization failed!\n");
-            while (true) {
-                blinkLED(100);
-            }
-            return;
-        }
+        initializeSystem();
+        global::initGlobalPins();
+
+        verifySystem();
+
+        initBlink();
 
         Core core;
+
         while (true) {
             std::cout << "vremya tyanut rezinu..." << std::endl;
+
             vTaskDelay(pdMS_TO_TICKS(1000));
         };
 #ifdef ENABLE_SAFENET
@@ -87,4 +100,7 @@ extern "C" void app_main(void) {
         };
     }
 #endif
+}
+extern "C" void app_main(void) {
+    true_main();
 }
