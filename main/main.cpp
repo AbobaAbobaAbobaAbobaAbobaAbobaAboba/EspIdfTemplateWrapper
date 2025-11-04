@@ -19,6 +19,8 @@ static void verifySystem() {
         esp_log(kErrorLogConfig, "FATAL", "System initialization failed!\n");
         while (true) {
             blinkLED(100);
+            LittleFS::LittleFsWrapper::printFilesystemInfo();
+            LittleFS::LittleFsWrapper::printFiles();
         }
         return;
     }
@@ -35,7 +37,7 @@ void true_main() {
 
         initBlink();
 
-        Core core;
+        Core core({"kgsn2g", "kbtaPR45ka$"});
 
         while (true) {
             std::cout << "vremya tyanut rezinu..." << std::endl;

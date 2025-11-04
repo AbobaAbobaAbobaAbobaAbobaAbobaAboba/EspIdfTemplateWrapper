@@ -7,16 +7,15 @@ void HttpServerWrapper::init() {
 }
 
 void HttpServerWrapper::initUriHandlers() {
-    // debug this shit later
-    // I (13446) HTTP_SERVER: Registered URI handler for css/app.2cf79ad6.css8��?
-    //  sI (13456) HTTP_SERVER: Registered URI handler for js/app.559277fc.8��?R
     resetPaths();
-    uri_paths_ = SPIFFS::SpiffsWrapper::getPaths();
-    for (int i = 0, is = uri_paths_.size(); i < is; ++i) {
-        uri_paths_[i] = "/" + uri_paths_[i];
-    }
+    uri_paths_ = LittleFS::LittleFsWrapper::getPaths();
+
     for (int i = 0; i < uri_paths_.size(); ++i) {
-        esp_log(kInfoLogConfig, "HTTP_SERVER", "Read paths %s", uri_paths_[i].c_str());
+        esp_log(
+          kInfoLogConfig,
+          HttpServerWrapper::TAG,
+          "Read paths %s",
+          uri_paths_[i].c_str());
     }
     uri_handlers_.clear();
     uri_handlers_.resize(uri_paths_.size());
@@ -57,7 +56,7 @@ bool HttpServerWrapper::startWebserver(void) {
     if (initServer() == false) {
         return false;
     }
-    esp_log(kInfoLogConfig, "HTTP_SERVER", "HTTP server started");
+    esp_log(kInfoLogConfig, HttpServerWrapper::TAG, "HTTP server started");
     initRoot();
     initPost();
     initUriHandlers();
@@ -66,7 +65,7 @@ bool HttpServerWrapper::startWebserver(void) {
     for (int i = 0; i < uri_handlers_.size(); ++i) {
         esp_log(
           kInfoLogConfig,
-          "HTTP_SERVER",
+          HttpServerWrapper::TAG,
           "Registered URI handler for %s \n",
           uri_handlers_[i].uri);
     }
@@ -97,46 +96,6 @@ esp_err_t HttpServerWrapper::sendPacket(
     return ESP_ERR_NOT_SUPPORTED;
 }
 
-esp_err_t HttpServerWrapper::onSocketOpened(httpd_handle_t hd, int sockfd) {
-    ++instance_->active_sockets_;
-    if (instance_->active_sockets_ >= kMaxActiveSocketsSoft) {
-        static constexpr char resp[] =
-          "HTTP/1.1 503 Service Unavailable\r\n"
-          "Content-Type: text/plain\r\n"
-          "Connection: close\r\n"
-          "Retry-After: 5\r\n"  // optional: tell client to retry after 5s
-          "\r\n"
-          "The amount of clients is maxed out. Try to connect later.\r\n";
-
-        write(sockfd, resp, strlen(resp));
-        lwip_close(sockfd);
-        esp_log(
-          kErrorLogConfig,
-          "HTTP_SERVER",
-          "Clients are maxed out. Dropping the connection...");
-        return ESP_FAIL;
-    }
-
-    esp_log(
-      kInfoLogConfig,
-      "HTTP_SERVER",
-      "Socket %d opened (total: %d)",
-      sockfd,
-      instance_->active_sockets_.load());
-
-    return ESP_OK;
-}
-
-void HttpServerWrapper::onSocketClosed(httpd_handle_t hd, int sockfd) {
-    --instance_->active_sockets_;
-    esp_log(
-      kInfoLogConfig,
-      "HTTP_SERVER",
-      "Socket %d CLOSED (total: %d)",
-      sockfd,
-      instance_->active_sockets_.load());
-}
-
 void HttpServerWrapper::invokeCallback(
   std::shared_ptr<WSPacket::PacketBase> packet,
   int sockfd) {
@@ -149,9 +108,32 @@ void HttpServerWrapper::invokeCallback(
 }
 
 esp_err_t HttpServerWrapper::root_get_handler(httpd_req_t* req) {
+    esp_err_t err = instance_->handleSocketCount();
+    if (err != ESP_OK) {
+        static constexpr char resp[] =
+          "HTTP/1.1 503 Service Unavailable\r\n"
+          "Content-Type: text/plain\r\n"
+          "Connection: close\r\n"
+          "Retry-After: 5\r\n"  // optional: tell client to retry after 5s
+          "\r\n"
+          "The amount of clients is maxed out. Try to connect later.\r\n";
+
+        esp_log(
+          kErrorLogConfig,
+          HttpServerWrapper::TAG,
+          "Clients are maxed out. Dropping the connection...");
+        httpd_resp_set_type(req, "text/html");
+        httpd_resp_send_chunk(req, resp, sizeof(resp));
+        httpd_resp_send_chunk(req, NULL, 0);
+        return ESP_OK;
+    }
     std::string path = "/index.html";
 
-    esp_log(kInfoLogConfig, "HTTP_SERVER", "Requested root path: %s \n", path.c_str());
+    esp_log(
+      kInfoLogConfig,
+      HttpServerWrapper::TAG,
+      "Requested root path: %s \n",
+      path.c_str());
 
     // Set content type
     if (strstr(path.c_str(), ".html")) {
@@ -164,17 +146,18 @@ esp_err_t HttpServerWrapper::root_get_handler(httpd_req_t* req) {
 
     bool continue_read = true;
     while (continue_read) {
-        auto [code, buffer, read_len] = SPIFFS::SpiffsWrapper::readFileChunked(path);
+        auto [code, buffer, read_len] =
+          LittleFS::LittleFsWrapper::readFileChunked(path);
 
         switch (code) {
-            case SPIFFS::ErrorCode::CONTINUE_READ:
+            case LittleFS::ErrorCode::CONTINUE_READ:
                 httpd_resp_send_chunk(req, buffer, read_len);
                 break;
-            case SPIFFS::ErrorCode::FINISHED_READ:
+            case LittleFS::ErrorCode::FINISHED_READ:
                 httpd_resp_send_chunk(req, buffer, read_len);
                 continue_read = false;
                 break;
-            case SPIFFS::ErrorCode::FILE_NOT_FOUND:
+            case LittleFS::ErrorCode::FILE_NOT_FOUND:
                 httpd_resp_send_404(req);
                 continue_read = false;
                 break;
@@ -208,7 +191,7 @@ esp_err_t HttpServerWrapper::post_handler(httpd_req_t* req) {
 
     // Null-terminate the received data
     buf[ret] = '\0';
-    esp_log(kErrorLogConfig, "HTTP_SERVER", "Received POST data: %s", buf);
+    esp_log(kErrorLogConfig, HttpServerWrapper::TAG, "Received POST data: %s", buf);
 
     // Send response
     std::string response = "Received: " + std::string(buf);
@@ -219,7 +202,11 @@ esp_err_t HttpServerWrapper::post_handler(httpd_req_t* req) {
 esp_err_t HttpServerWrapper::generic_get_handler(httpd_req_t* req) {
     std::string path = req->uri;
 
-    esp_log(kInfoLogConfig, "HTTP_SERVER", "Requested path: %s \n", path.c_str());
+    esp_log(
+      kInfoLogConfig,
+      HttpServerWrapper::TAG,
+      "Requested path: %s \n",
+      path.c_str());
 
     // Set content type
     if (strstr(path.c_str(), ".html")) {
@@ -232,17 +219,18 @@ esp_err_t HttpServerWrapper::generic_get_handler(httpd_req_t* req) {
 
     bool continue_read = true;
     while (continue_read) {
-        auto [code, buffer, read_len] = SPIFFS::SpiffsWrapper::readFileChunked(path);
+        auto [code, buffer, read_len] =
+          LittleFS::LittleFsWrapper::readFileChunked(path);
 
         switch (code) {
-            case SPIFFS::ErrorCode::CONTINUE_READ:
+            case LittleFS::ErrorCode::CONTINUE_READ:
                 httpd_resp_send_chunk(req, buffer, read_len);
                 break;
-            case SPIFFS::ErrorCode::FINISHED_READ:
+            case LittleFS::ErrorCode::FINISHED_READ:
                 httpd_resp_send_chunk(req, buffer, read_len);
                 continue_read = false;
                 break;
-            case SPIFFS::ErrorCode::FILE_NOT_FOUND:
+            case LittleFS::ErrorCode::FILE_NOT_FOUND:
                 httpd_resp_send_404(req);
                 continue_read = false;
                 break;
@@ -264,20 +252,25 @@ esp_err_t HttpServerWrapper::config_handler(httpd_req_t* req) {
     httpd_resp_send(req, str.get(), strlen(str.get()));
     esp_log(
       kInfoLogConfig,
-      "HTTP_SERVER",
+      HttpServerWrapper::TAG,
       "Served config with IP %s",
       AssignedIp::getCurrentIp().c_str());
     return ESP_OK;
 }
 
 esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
-    esp_log(kInfoLogConfig, "HTTP_SERVER", "Handler invoked with %d", req->method);
+    esp_log(
+      kInfoLogConfig,
+      HttpServerWrapper::TAG,
+      "Handler invoked with %d",
+      req->method);
     if (req->method == HTTP_GET) {
         esp_log(
           kInfoLogConfig,
-          "HTTP_SERVER",
+          HttpServerWrapper::TAG,
           "Handshake done, the new connection was opened");
-        return ESP_OK;
+        esp_err_t err = instance_->handleSocketCount();
+        return err;
     }
 
     httpd_ws_frame_t ws_pkt;
@@ -291,7 +284,7 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
     if (ret != ESP_OK) {
         esp_log(
           kErrorLogConfig,
-          "HTTP_SERVER",
+          HttpServerWrapper::TAG,
           "httpd_ws_recv_frame failed to get frame len with %d",
           ret);
 
@@ -307,7 +300,7 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
           instance_->server_,
           httpd_req_to_sockfd(req));
 
-        esp_log(kInfoLogConfig, "HTTP_SERVER", "Client inited disconnect");
+        esp_log(kInfoLogConfig, HttpServerWrapper::TAG, "Client inited disconnect");
         return ESP_OK;
     }
 
@@ -320,7 +313,7 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
     if (ret != ESP_OK) {
         esp_log(
           kErrorLogConfig,
-          "HTTP_SERVER",
+          HttpServerWrapper::TAG,
           "httpd_ws_recv_frame failed with %d",
           ret);
         instance_->ws_handler_.close_websocket(
@@ -331,14 +324,17 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
 
     esp_log(
       kInfoLogConfig,
-      "HTTP_SERVER",
+      HttpServerWrapper::TAG,
       "Got packet with message: %s",
       ws_pkt.payload);
 
-    esp_log(kInfoLogConfig, "HTTP_SERVER", "frame len is %d", ws_pkt.len);
+    esp_log(kInfoLogConfig, HttpServerWrapper::TAG, "frame len is %d", ws_pkt.len);
 
     if (ws_pkt.type != HTTPD_WS_TYPE_TEXT) {
-        esp_log(kErrorLogConfig, "HTTP_SERVER", "ws_pkt.type != HTTPD_WS_TYPE_TEXT");
+        esp_log(
+          kErrorLogConfig,
+          HttpServerWrapper::TAG,
+          "ws_pkt.type != HTTPD_WS_TYPE_TEXT");
         instance_->ws_handler_.close_websocket(
           instance_->server_,
           httpd_req_to_sockfd(req));
@@ -355,7 +351,7 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
 
     std::shared_ptr<WSPacket::PacketBase> packet = WSPacket::Parser::parse(*json);
     if (!packet) {
-        esp_log(kErrorLogConfig, "HTTP_SERVER", "Failed to parse!");
+        esp_log(kErrorLogConfig, HttpServerWrapper::TAG, "Failed to parse!");
         instance_->ws_handler_.close_websocket(
           instance_->server_,
           httpd_req_to_sockfd(req));
@@ -367,7 +363,7 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
     size_t free_dram = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
     size_t total_dram = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
     size_t used_dram = total_dram - free_dram;
-    esp_log(kErrorLogConfig, "HTTP_SERVER", "===RAM %d !", used_dram);
+    esp_log(kErrorLogConfig, HttpServerWrapper::TAG, "===RAM %d !", used_dram);
     return ESP_OK;
 }
 
@@ -376,16 +372,41 @@ void HttpServerWrapper::resetServer() {
     config_ = HTTPD_DEFAULT_CONFIG();
     config_.max_uri_handlers = 16;
     config_.max_open_sockets = kMaxActiveSocketsHard;
-    config_.open_fn = &HttpServerWrapper::onSocketOpened;
-    config_.close_fn = &HttpServerWrapper::onSocketClosed;
+    config_.lru_purge_enable = true;  // <--- THIS LINE
+}
+
+int HttpServerWrapper::getSocketCount() {
+    int client_fds[CONFIG_LWIP_MAX_SOCKETS];
+    size_t num_active =
+      CONFIG_LWIP_MAX_SOCKETS;  // In: Size of array; Out: Number of active FDs
+    esp_err_t ret = httpd_get_client_list(server_, &num_active, client_fds);
+    if (ret != ESP_OK) {
+        return -1;
+    }
+    return num_active;
+}
+
+esp_err_t HttpServerWrapper::handleSocketCount() {
+    int socket_count = getSocketCount();
+    esp_log(kErrorLogConfig, "ABOBA", "current socket count: %d", socket_count);
+
+    if (socket_count == -1) {
+        return ESP_FAIL;
+    }
+
+    if (socket_count >= kMaxActiveSocketsSoft) {
+        esp_log(kErrorLogConfig, HttpServerWrapper::TAG, "Clients are maxed out.");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 bool HttpServerWrapper::initServer() {
     if (httpd_start(&server_, &config_) == ESP_OK) {
-        esp_log(kInfoLogConfig, "HTTP_SERVER", "HTTP server started");
+        esp_log(kInfoLogConfig, HttpServerWrapper::TAG, "HTTP server started");
         return true;
     } else {
-        esp_log(kErrorLogConfig, "HTTP_SERVER", "Failed to start HTTP server");
+        esp_log(kErrorLogConfig, HttpServerWrapper::TAG, "Failed to start HTTP server");
         return false;
     }
 }

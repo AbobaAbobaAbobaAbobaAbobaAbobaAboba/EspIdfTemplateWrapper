@@ -481,7 +481,7 @@ CONFIG_IDF_TARGET_ARCH="xtensa"
 # default:
 CONFIG_IDF_TARGET="esp32"
 # default:
-CONFIG_IDF_INIT_VERSION="$IDF_INIT_VERSION"
+CONFIG_IDF_INIT_VERSION="6.0.0"
 # default:
 CONFIG_IDF_TARGET_ESP32=y
 # default:
@@ -3204,13 +3204,13 @@ CONFIG_SPI_FLASH_ENABLE_ENCRYPTED_READ_WRITE=y
 # end of SPI Flash driver
 
 #
-# SPIFFS Configuration
+# LittleFS Configuration
 #
 # default:
 CONFIG_SPIFFS_MAX_PARTITIONS=3
 
 #
-# SPIFFS Cache Configuration
+# LittleFS Cache Configuration
 #
 # default:
 CONFIG_SPIFFS_CACHE=y
@@ -3218,7 +3218,7 @@ CONFIG_SPIFFS_CACHE=y
 CONFIG_SPIFFS_CACHE_WR=y
 # default:
 # CONFIG_SPIFFS_CACHE_STATS is not set
-# end of SPIFFS Cache Configuration
+# end of LittleFS Cache Configuration
 
 # default:
 CONFIG_SPIFFS_PAGE_CHECK=y
@@ -3256,7 +3256,7 @@ CONFIG_SPIFFS_USE_MTIME=y
 # default:
 # CONFIG_SPIFFS_TEST_VISUALISATION is not set
 # end of Debug Configuration
-# end of SPIFFS Configuration
+# end of LittleFS Configuration
 
 #
 # TCP Transport

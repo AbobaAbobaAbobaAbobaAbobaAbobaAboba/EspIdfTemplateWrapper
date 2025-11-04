@@ -13,43 +13,14 @@
 
 class WebsocketHandler {
   public:
-    WebsocketHandler() {
-#ifdef ENABLE_SAFENET
-        if (instance_ != nullptr) {
-            throw std::runtime_error("WebsocketHandler already exists!");
-        }
-#endif
-        instance_ = this;
-    }
-    ~WebsocketHandler() {
-#ifdef ENABLE_SAFENET
-        if (instance_ == nullptr) {
-            esp_log(kErrorLogConfig, "WEBSOCKET_HANDLER", "Instance is already null!");
-        }
-#endif
-    }
+    WebsocketHandler();
+    ~WebsocketHandler();
     WebsocketHandler(const WebsocketHandler& other) = delete;
     WebsocketHandler& operator=(const WebsocketHandler& other) = delete;
     WebsocketHandler(WebsocketHandler&& other) = delete;
     WebsocketHandler& operator=(WebsocketHandler&& other) = delete;
-    esp_err_t send(std::shared_ptr<WSPacket::PacketDescriptor> descriptor) {
-        // const WSPacket::PacketRespBase* packet
-        std::lock_guard<std::mutex> lock(queue_mutex_);
-        sending_queue_.push(descriptor);
-        return scheduleAsyncSend(descriptor->hd);
-    }
-    void close_websocket(httpd_handle_t hd, int sockfd) {
-        httpd_ws_frame_t close_pkt = {
-          .final = true,
-          .fragmented = false,
-          .type = HTTPD_WS_TYPE_CLOSE,
-          .payload = nullptr,
-          .len = 0};
-        httpd_ws_send_frame_async(hd, sockfd, &close_pkt);
-
-        // Then close the socket
-        httpd_sess_trigger_close(hd, sockfd);
-    }
+    esp_err_t send(std::shared_ptr<WSPacket::PacketDescriptor> descriptor);
+    void close_websocket(httpd_handle_t hd, int sockfd);
 
   private:
     friend class HttpServerWrapper;
@@ -60,5 +31,6 @@ class WebsocketHandler {
     std::queue<std::shared_ptr<WSPacket::PacketDescriptor>> sending_queue_;
 
     inline static WebsocketHandler* instance_ = nullptr;
+    inline static constexpr TagType TAG = "WEBSOCKET_HANDLER";
 };
 #endif

@@ -87,6 +87,7 @@ class JsonWrapper {
   private:
     cJSON* json_ = nullptr;
     inline static int counter = 0;
+    inline static constexpr TagType TAG = "JSON_WRAPPER";
 };
 
 #endif  // JSON_WRAPPER_HPP

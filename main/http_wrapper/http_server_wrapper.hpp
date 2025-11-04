@@ -2,7 +2,7 @@
 #define HTTP_SERVER_WRAPPER_HPP
 #include "../common/common.hpp"
 #include "../json_wrapper/json_wrapper.hpp"
-#include "../spiffs_wrapper/spiffs_wrapper.hpp"
+#include "../littlefs_wrapper/littlefs_wrapper.hpp"
 #include "../websocket_handler/websocket_handler.hpp"
 #include "lwip/sockets.h"
 #include <esp_event.h>
@@ -54,8 +54,6 @@ class HttpServerWrapper {
   private:
     static esp_err_t onSocketOpened(httpd_handle_t hd, int sockfd);
 
-    static void onSocketClosed(httpd_handle_t hd, int sockfd);
-
     static esp_err_t root_get_handler(httpd_req_t* req);
     static esp_err_t post_handler(httpd_req_t* req);
     static esp_err_t generic_get_handler(httpd_req_t* req);
@@ -75,6 +73,8 @@ class HttpServerWrapper {
     void initWebSocket();
     void resetPaths();
     void resetServer();
+    int getSocketCount();
+    esp_err_t handleSocketCount();
     httpd_handle_t server_;
     httpd_config_t config_;
     httpd_uri_t root_;
@@ -86,7 +86,7 @@ class HttpServerWrapper {
     WebsocketHandler ws_handler_;
     std::vector<std::string> uri_paths_;
     std::vector<httpd_uri_t> uri_handlers_;
-    std::atomic<uint8_t> active_sockets_ = 0;
     inline static HttpServerWrapper* instance_ = nullptr;
+    inline static constexpr TagType TAG = "HTTP_SERVER";
 };
 #endif  // HTTP_SERVER_WRAPPER_HPP

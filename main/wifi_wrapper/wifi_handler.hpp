@@ -36,6 +36,7 @@ class WifiHandler {
 
     bool
     connect(const std::string& ssid, const std::string& password, int max_attempts = 5);
+
     bool waitForConnected();
 
     void disconnect();

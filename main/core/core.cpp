@@ -1,5 +1,5 @@
 #include "core.hpp"
-Core::Core() {
+Core::Core(const Credentials& _creds) : creds_(_creds) {
     if (instance_ != nullptr) {
         throw std::runtime_error("Core instance already exists!");
     }
@@ -7,8 +7,24 @@ Core::Core() {
     init();
 }
 void Core::init() {
-    wifi_handler_.connect("kgsn2g", "kbtaPR45ka$", 20);
+    wifi_handler_.connect(creds_.ssid, creds_.password, 20);
     wifi_handler_.waitForConnected();
+    esp_log(
+      kErrorLogConfig,
+      "ABOBA",
+      "Time before %s ",
+      sntp_wrapper_.getCurrentTime().toString().c_str());
+    if (wifi_handler_.isConnected()) {
+        sntp_wrapper_.start();
+    }
+    while (!sntp_wrapper_.is_synced()) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    esp_log(
+      kErrorLogConfig,
+      "ABOBA",
+      "Time after %s ",
+      sntp_wrapper_.getCurrentTime().toString().c_str());
 
     http_server_.startWebserver();
     http_server_.registerCallback(&Core::applyPacket);
@@ -51,5 +67,18 @@ void Core::applyLED(
       led_packet->state ? "ON" : "OFF");
     std::unique_ptr<WSPacket::PacketRespBase> packet =
       std::make_unique<WSPacket::PacketRespLED>(WSPacket::RespType::OK);
+    http_server_.sendPacket(packet.get(), sockfd);
+}
+
+void Core::applyServo(
+  const WSPacket::PacketServo* servo_packet,
+  [[maybe_unused]] int sockfd) {
+    constexpr static int angle = (2500 - 500) / 180;
+
+    global::pwm_pin->write(500 + servo_packet->value * angle);
+
+    esp_log(kInfoLogConfig, "CORE", "Servo value changed to: %d", servo_packet->value);
+    std::unique_ptr<WSPacket::PacketRespBase> packet =
+      std::make_unique<WSPacket::PacketRespServo>(WSPacket::RespType::OK);
     http_server_.sendPacket(packet.get(), sockfd);
 }

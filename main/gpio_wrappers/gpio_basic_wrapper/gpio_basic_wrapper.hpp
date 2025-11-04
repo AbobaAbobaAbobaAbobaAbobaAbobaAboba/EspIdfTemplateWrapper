@@ -33,6 +33,8 @@ class GpioBasicWrapper : public GpioBase {
 
     gpio_config_t io_conf_ = {};
     std::atomic<bool> is_configured_ = false;
+
+    inline static constexpr TagType TAG = "GPIO_BASIC_WRAPPER";
 };
 };      // namespace GPIO
 #endif  // GPIO_WRAPPER_HPP

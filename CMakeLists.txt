@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/copy_dir_done
-    COMMAND bash deploy_vue.sh vue_working_folder/dist spiffs
+    COMMAND bash deploy_vue.sh vue_working_folder/dist littlefs
     COMMAND touch ${CMAKE_BINARY_DIR}/copy_dir_done
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Running copy_dir.sh to copy files"

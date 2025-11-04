@@ -4,15 +4,20 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
+#include "littlefs_wrapper/littlefs_wrapper.hpp"
 #include "nvs_flash.h"
-#include "spiffs_wrapper/spiffs_wrapper.hpp"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <iostream>
 
+typedef const char* TagType;
 static constexpr int WIFI_CONNECTED_BIT = BIT0;
 static constexpr int WIFI_FAIL_BIT = BIT1;
 
+struct Credentials {
+    std::string ssid;
+    std::string password;
+};
 inline void initializeWifiStack();
 struct SystemStatus {
   public:
@@ -70,7 +75,7 @@ inline void initializeSystem() {
     } else {
         SystemStatus::system_status_ = true;
     }
-    SPIFFS::SpiffsWrapper::init();
+    LittleFS::LittleFsWrapper::init();
     initializeWifiStack();
     // led = GPIO::GpioBasicWrapper::getInstance(LED_PIN);
     // if (led->isConfigured() == false) {

@@ -1,0 +1,32 @@
+dependencies:
+  idf:
+    source:
+      type: idf
+    version: 6.0.0
+  joltwallet/littlefs:
+    component_hash: 150ca47225f7c9917f7f610a5f85e5e93fe3c15402234c23496ff045ad558b0b
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.20.2
+  leeebo/esp-inih:
+    component_hash: a2ecd9643d4cf7b3592645579d6ecf0f5c4f07f8ca8f9bafeb1d0f89fd005f38
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.4'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.0.2
+direct_dependencies:
+- idf
+- joltwallet/littlefs
+- leeebo/esp-inih
+manifest_hash: a2661633ee9d97f6a0d1f5d4e19dda6085d0a79619fdd4b61ef43528fb72e2be
+target: esp32
+version: 2.0.0

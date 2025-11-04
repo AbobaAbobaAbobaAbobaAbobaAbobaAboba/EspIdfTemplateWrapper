@@ -132,7 +132,7 @@ std::optional<int> JsonWrapper::getNumber(const char* key) const {
     if (!item || !cJSON_IsNumber(item)) {
         esp_log(
           kErrorLogConfig,
-          "JSON_WRAPPER",
+          JsonWrapper::TAG,
           "getNumber: item is null or not a number: %d %d",
           item == nullptr,
           cJSON_IsNumber(item));
