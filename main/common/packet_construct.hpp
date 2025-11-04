@@ -6,7 +6,7 @@
 #include <stdexcept>
 namespace WSPacket {
 
-inline std::tuple<httpd_ws_frame_t, std::shared_ptr<JsonWrapper>> constructFrame(
+inline std::tuple<httpd_ws_frame_t, std::shared_ptr<char>> constructFrame(
   const WSPacket::PacketRespLED& packet) {
     httpd_ws_frame_t frame;
     memset(&frame, 0, sizeof(frame));
@@ -14,16 +14,16 @@ inline std::tuple<httpd_ws_frame_t, std::shared_ptr<JsonWrapper>> constructFrame
     std::shared_ptr<JsonWrapper> json =
       std::make_shared<JsonWrapper>(packet.generateJson());
 
-    char* serialized = json->serialize();
+    auto serialized = json->serialize();
 
-    frame.payload = reinterpret_cast<uint8_t*>(serialized);
-    frame.len = strlen(serialized);
+    frame.payload = reinterpret_cast<uint8_t*>(serialized.get());
+    frame.len = strlen(serialized.get());
     frame.type = HTTPD_WS_TYPE_TEXT;
 
-    return {frame, json};
+    return {frame, serialized};
 }
 
-inline std::tuple<httpd_ws_frame_t, std::shared_ptr<JsonWrapper>> constructFrame(
+inline std::tuple<httpd_ws_frame_t, std::shared_ptr<char>> constructFrame(
   const WSPacket::PacketRespServo& packet) {
     httpd_ws_frame_t frame;
     memset(&frame, 0, sizeof(frame));
@@ -31,13 +31,13 @@ inline std::tuple<httpd_ws_frame_t, std::shared_ptr<JsonWrapper>> constructFrame
     std::shared_ptr<JsonWrapper> json =
       std::make_shared<JsonWrapper>(packet.generateJson());
 
-    char* serialized = json->serialize();
+    auto serialized = json->serialize();
 
-    frame.payload = reinterpret_cast<uint8_t*>(serialized);
-    frame.len = strlen(serialized);
+    frame.payload = reinterpret_cast<uint8_t*>(serialized.get());
+    frame.len = strlen(serialized.get());
     frame.type = HTTPD_WS_TYPE_TEXT;
 
-    return {frame, json};
+    return {frame, serialized};
 }
 
 };  // namespace WSPacket

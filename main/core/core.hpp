@@ -24,7 +24,9 @@ class Core {
     void applyServo(
       const WSPacket::PacketServo* servo_packet,
       [[maybe_unused]] int sockfd) {
-        global::pwm_pin->write(servo_packet->value);
+        constexpr static int angle = (2500 - 500) / 180;
+
+        global::pwm_pin->write(500 + servo_packet->value * angle);
 
         esp_log(
           kInfoLogConfig,

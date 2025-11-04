@@ -21,7 +21,7 @@ struct PacketDescriptor {
     httpd_ws_frame_t frame;
     httpd_handle_t hd;
     int fd;
-    std::shared_ptr<JsonWrapper> json;
+    std::shared_ptr<char> str;
 };
 
 enum class ParseResult : uint8_t {

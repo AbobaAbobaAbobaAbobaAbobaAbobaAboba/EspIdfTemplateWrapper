@@ -260,7 +260,8 @@ esp_err_t HttpServerWrapper::config_handler(httpd_req_t* req) {
     JsonWrapper json;
     json.addString("ip", AssignedIp::getCurrentIp());
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, json.serialize(), strlen(json.serialize()));
+    auto str = json.serialize();
+    httpd_resp_send(req, str.get(), strlen(str.get()));
     esp_log(
       kInfoLogConfig,
       "HTTP_SERVER",
@@ -293,11 +294,20 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
           "HTTP_SERVER",
           "httpd_ws_recv_frame failed to get frame len with %d",
           ret);
+
+        instance_->ws_handler_.close_websocket(
+          instance_->server_,
+          httpd_req_to_sockfd(req));
+
         return ret;
     }
 
-    if (!ws_pkt.len) {
-        esp_log(kInfoLogConfig, "HTTP_SERVER", "Received empty ws packet");
+    if (ws_pkt.len == 0 && ws_pkt.type == HTTPD_WS_TYPE_CLOSE) {
+        instance_->ws_handler_.close_websocket(
+          instance_->server_,
+          httpd_req_to_sockfd(req));
+
+        esp_log(kInfoLogConfig, "HTTP_SERVER", "Client inited disconnect");
         return ESP_OK;
     }
 
@@ -313,7 +323,9 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
           "HTTP_SERVER",
           "httpd_ws_recv_frame failed with %d",
           ret);
-
+        instance_->ws_handler_.close_websocket(
+          instance_->server_,
+          httpd_req_to_sockfd(req));
         return ret;
     }
 
@@ -327,6 +339,9 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
 
     if (ws_pkt.type != HTTPD_WS_TYPE_TEXT) {
         esp_log(kErrorLogConfig, "HTTP_SERVER", "ws_pkt.type != HTTPD_WS_TYPE_TEXT");
+        instance_->ws_handler_.close_websocket(
+          instance_->server_,
+          httpd_req_to_sockfd(req));
         return ESP_ERR_NOT_SUPPORTED;
     }
 
@@ -341,11 +356,18 @@ esp_err_t HttpServerWrapper::websocket_handler(httpd_req_t* req) {
     std::shared_ptr<WSPacket::PacketBase> packet = WSPacket::Parser::parse(*json);
     if (!packet) {
         esp_log(kErrorLogConfig, "HTTP_SERVER", "Failed to parse!");
+        instance_->ws_handler_.close_websocket(
+          instance_->server_,
+          httpd_req_to_sockfd(req));
         return ESP_ERR_INVALID_ARG;
     }
 
     instance_->invokeCallback(packet, httpd_req_to_sockfd(req));
 
+    size_t free_dram = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    size_t total_dram = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
+    size_t used_dram = total_dram - free_dram;
+    esp_log(kErrorLogConfig, "HTTP_SERVER", "===RAM %d !", used_dram);
     return ESP_OK;
 }
 

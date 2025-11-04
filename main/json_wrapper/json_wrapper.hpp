@@ -4,8 +4,16 @@
 #include "../common/common.hpp"
 #include <cJSON.h>
 #include <exception>
+#include <memory>
 #include <optional>
 #include <string>
+// Functor as deleter
+struct CJsonFree {
+    void operator()(char* p) const {
+        free(p);  // free memory allocated by cJSON_PrintUnformatted
+    }
+};
+
 class JsonWrapper {
   public:
     JsonWrapper(const std::string& str);
@@ -73,12 +81,12 @@ class JsonWrapper {
     std::optional<float> getFloat(const char* key) const;
     std::optional<std::string> getString(const char* key) const;
 
-    std::string toString() const;
-    char* serialize() const;
+    std::shared_ptr<char> serialize() const;
     const cJSON* getJson() const;
 
   private:
     cJSON* json_ = nullptr;
+    inline static int counter = 0;
 };
 
 #endif  // JSON_WRAPPER_HPP

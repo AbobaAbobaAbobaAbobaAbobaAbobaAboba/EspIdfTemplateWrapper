@@ -1,33 +1,45 @@
 #include "json_wrapper.hpp"
 JsonWrapper::JsonWrapper(const std::string& str) {
     json_ = cJSON_Parse(str.c_str());
-    std::cout << "aboba constructor 1 invoked!" << std::endl;
+
+    ++counter;
+    // esp_log(kErrorLogConfig, "ABOBA", "JSON count begin %d", counter);
+
     if (json_ == nullptr) {
         throw std::runtime_error("Failed to parse JSON string");
     }
 }
 JsonWrapper::JsonWrapper(const char* str) {
     json_ = cJSON_Parse(str);
-    std::cout << "aboba constructor 2 invoked!" << std::endl;
+
+    ++counter;
+    // esp_log(kErrorLogConfig, "ABOBA", "JSON count begin %d", counter);
+
     if (json_ == nullptr) {
         throw std::runtime_error("Failed to parse JSON string");
     }
 }
 JsonWrapper::JsonWrapper(const uint8_t* str) {
     json_ = cJSON_Parse(reinterpret_cast<const char*>(str));
-    std::cout << "aboba constructor 3 invoked!" << std::endl;
+
+    ++counter;
+    // esp_log(kErrorLogConfig, "ABOBA", "JSON count begin %d", counter);
     if (json_ == nullptr) {
         throw std::runtime_error("Failed to parse JSON string");
     }
 }
 // Constructor: Initializes a cJSON object (default is an object)
 JsonWrapper::JsonWrapper() {
+    ++counter;
+    // esp_log(kErrorLogConfig, "ABOBA", "JSON count begin %d", counter);
     json_ = cJSON_CreateObject();
 }
 
 // Destructor: Frees the cJSON object
 JsonWrapper::~JsonWrapper() {
     if (json_) {
+        --counter;
+        // esp_log(kErrorLogConfig, "ABOBA", "JSON count end %d", counter);
         cJSON_Delete(json_);
     }
 }
@@ -35,15 +47,18 @@ JsonWrapper::~JsonWrapper() {
 // Disable copy constructor and assignment to prevent double-free
 JsonWrapper::JsonWrapper(const JsonWrapper& other) {
     if (other.json_) {
+        ++counter;
+        // esp_log(kErrorLogConfig, "ABOBA", "JSON count begin %d", counter);
         json_ = cJSON_Duplicate(other.json_, cJSON_True);
     }
 }
 
 // Move assignment
 JsonWrapper& JsonWrapper::operator=(JsonWrapper&& other) noexcept {
-    std::cout << "aboba move assignmed operator  invoked!" << std::endl;
     if (this != &other) {
         if (json_) {
+            --counter;
+            // esp_log(kErrorLogConfig, "ABOBA", "JSON count end %d", counter);
             cJSON_Delete(json_);
         }
         json_ = other.json_;
@@ -142,19 +157,17 @@ std::optional<std::string> JsonWrapper::getString(const char* key) const {
     return std::string(item->valuestring);
 }
 
-// Serialize to string (caller must free the returned pointer)
-std::string JsonWrapper::toString() const {
+std::shared_ptr<char> JsonWrapper::serialize() const {
+    if (json_) {
+        return std::shared_ptr<char>(cJSON_PrintUnformatted(json_), CJsonFree());
+    } else {
 #ifdef ENABLE_SAFENET
-    if (json_ == nullptr) {
-        throw std::runtime_error("cJSON object is null!");
-    }
-#endif
-    std::string raw_val = cJSON_PrintUnformatted(json_);
-    return raw_val;
-}
+        throw std::runtime_error("trying to serialize empty json");
+#elif
+        return {};
 
-char* JsonWrapper::serialize() const {
-    return cJSON_PrintUnformatted(json_);
+#endif
+    }
 }
 
 // Get the underlying cJSON pointer (use with caution)
@@ -179,5 +192,4 @@ JsonWrapper& JsonWrapper::operator=(const JsonWrapper& other) {
 // Move constructor
 JsonWrapper::JsonWrapper(JsonWrapper&& other) noexcept : json_(other.json_) {
     other.json_ = nullptr;
-    std::cout << "aboba move constructor invoked!" << std::endl;
 }

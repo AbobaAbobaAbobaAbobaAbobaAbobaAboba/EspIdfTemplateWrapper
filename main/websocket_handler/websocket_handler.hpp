@@ -6,6 +6,8 @@
 #include <esp_event.h>
 #include <esp_http_server.h>
 #include <esp_log.h>
+#include <memory>
+#include <mutex>
 #include <queue>
 #include <stdexcept>
 
@@ -35,6 +37,18 @@ class WebsocketHandler {
         std::lock_guard<std::mutex> lock(queue_mutex_);
         sending_queue_.push(descriptor);
         return scheduleAsyncSend(descriptor->hd);
+    }
+    void close_websocket(httpd_handle_t hd, int sockfd) {
+        httpd_ws_frame_t close_pkt = {
+          .final = true,
+          .fragmented = false,
+          .type = HTTPD_WS_TYPE_CLOSE,
+          .payload = nullptr,
+          .len = 0};
+        httpd_ws_send_frame_async(hd, sockfd, &close_pkt);
+
+        // Then close the socket
+        httpd_sess_trigger_close(hd, sockfd);
     }
 
   private:

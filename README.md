@@ -1,2 +1,2 @@
 # EspIdfTemplateWrapper
-Templated wrapper for easy esp32 developement
+Templated wrapper for simple esp32 developement
