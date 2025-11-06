@@ -20,6 +20,7 @@ idf_component_register(SRCS "main.cpp"
     "gpio_wrappers/gpio_basic_wrapper/gpio_basic_wrapper.cpp"
     "websocket_handler/websocket_handler.cpp"
     "core/core.cpp"
+    "common/common.cpp"
     "gpio_wrappers/mcpwm_wrapper/mcpwm_wrapper.cpp"
     "sntp_wrapper/sntp_wrapper.cpp"
      REQUIRES ${MY_ESP_COMPONENTS}

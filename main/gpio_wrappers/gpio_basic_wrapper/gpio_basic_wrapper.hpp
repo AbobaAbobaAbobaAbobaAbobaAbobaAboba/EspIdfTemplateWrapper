@@ -3,6 +3,7 @@
 
 #include "../gpio_common.hpp"
 #include <esp_log.h>
+#include <atomic>
 #include <exception>
 #include <stdexcept>
 #include <string>

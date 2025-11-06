@@ -42,7 +42,7 @@
 build/
 vue_working_folder/
 spiffs/
-littlefs/
+littlefs/web_do_not_rename/
 !littlefs/.gitkeep
 !vue_working_folder/.gitkeep
 !spiffs/.gitkeep

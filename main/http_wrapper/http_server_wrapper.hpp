@@ -88,5 +88,10 @@ class HttpServerWrapper {
     std::vector<httpd_uri_t> uri_handlers_;
     inline static HttpServerWrapper* instance_ = nullptr;
     inline static constexpr TagType TAG = "HTTP_SERVER";
+
+    static std::string generatePath(const std::string& filepath) {
+        return std::string(web_folder) + filepath;
+    }
+    constexpr static char web_folder[] = "/web_do_not_rename";
 };
 #endif  // HTTP_SERVER_WRAPPER_HPP

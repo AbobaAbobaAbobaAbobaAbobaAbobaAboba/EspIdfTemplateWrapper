@@ -8,22 +8,28 @@ void HttpServerWrapper::init() {
 
 void HttpServerWrapper::initUriHandlers() {
     resetPaths();
-    uri_paths_ = LittleFS::LittleFsWrapper::getPaths();
 
-    for (int i = 0; i < uri_paths_.size(); ++i) {
-        esp_log(
-          kInfoLogConfig,
-          HttpServerWrapper::TAG,
-          "Read paths %s",
-          uri_paths_[i].c_str());
+    std::vector<std::string> temp_paths = LittleFS::LittleFsWrapper::getPaths();
+
+    uri_paths_.clear();
+
+    for (auto& path : temp_paths) {
+        if (
+          path.find(web_folder) == std::string::npos
+          || path.find("index.html") != std::string::npos) {
+            continue;
+        }
+        uri_paths_.push_back(path);
     }
-    uri_handlers_.clear();
+
     uri_handlers_.resize(uri_paths_.size());
+
     for (int i = 0; i < uri_paths_.size(); ++i) {
         httpd_uri_t uri_handler;
         memset(&uri_handler, 0, sizeof(httpd_uri_t));
+
         uri_handler = {
-          .uri = uri_paths_[i].c_str(),
+          .uri = uri_paths_[i].c_str() + sizeof(web_folder) - 1,
           .method = HTTP_GET,
           .handler = generic_get_handler,
           .user_ctx = NULL,
@@ -56,12 +62,19 @@ bool HttpServerWrapper::startWebserver(void) {
     if (initServer() == false) {
         return false;
     }
+
     esp_log(kInfoLogConfig, HttpServerWrapper::TAG, "HTTP server started");
+
     initRoot();
+
     initPost();
+
     initUriHandlers();
+
     initConfig();
+
     initWebSocket();
+
     for (int i = 0; i < uri_handlers_.size(); ++i) {
         esp_log(
           kInfoLogConfig,
@@ -127,7 +140,7 @@ esp_err_t HttpServerWrapper::root_get_handler(httpd_req_t* req) {
         httpd_resp_send_chunk(req, NULL, 0);
         return ESP_OK;
     }
-    std::string path = "/index.html";
+    std::string path = generatePath("/index.html");
 
     esp_log(
       kInfoLogConfig,
@@ -145,9 +158,9 @@ esp_err_t HttpServerWrapper::root_get_handler(httpd_req_t* req) {
     }
 
     bool continue_read = true;
+    auto read_descriptor = LittleFS::LittleFsWrapper::open(path);
     while (continue_read) {
-        auto [code, buffer, read_len] =
-          LittleFS::LittleFsWrapper::readFileChunked(path);
+        auto [code, buffer, read_len] = read_descriptor.readFileChunked();
 
         switch (code) {
             case LittleFS::ErrorCode::CONTINUE_READ:
@@ -200,7 +213,7 @@ esp_err_t HttpServerWrapper::post_handler(httpd_req_t* req) {
 }
 
 esp_err_t HttpServerWrapper::generic_get_handler(httpd_req_t* req) {
-    std::string path = req->uri;
+    std::string path = generatePath(req->uri);
 
     esp_log(
       kInfoLogConfig,
@@ -218,9 +231,9 @@ esp_err_t HttpServerWrapper::generic_get_handler(httpd_req_t* req) {
     }
 
     bool continue_read = true;
+    auto read_descriptor = LittleFS::LittleFsWrapper::open(path);
     while (continue_read) {
-        auto [code, buffer, read_len] =
-          LittleFS::LittleFsWrapper::readFileChunked(path);
+        auto [code, buffer, read_len] = read_descriptor.readFileChunked();
 
         switch (code) {
             case LittleFS::ErrorCode::CONTINUE_READ:

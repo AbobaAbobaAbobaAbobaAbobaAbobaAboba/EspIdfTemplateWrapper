@@ -1,6 +1,7 @@
 #ifndef CORE_HPP
 #define CORE_HPP
 #include "../common/global.hpp"
+#include "../config_wrapper/config_wrapper.hpp"
 #include "../http_wrapper/http_server_wrapper.hpp"
 #include "../sntp_wrapper/sntp_wrapper.hpp"
 #include "../wifi_wrapper/wifi_handler.hpp"
@@ -33,5 +34,7 @@ class Core {
     inline static Core* instance_ = nullptr;
     inline static constexpr TagType TAG = "CORE";
     Credentials creds_;
+
+    ConfigWrapper wrapper;
 };
 #endif

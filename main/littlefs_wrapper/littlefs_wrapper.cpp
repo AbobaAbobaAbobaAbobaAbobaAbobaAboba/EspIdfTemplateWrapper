@@ -77,39 +77,6 @@ std::vector<std::string> LittleFsWrapper::getPaths() {
     return paths;
 }
 
-std::tuple<ErrorCode, const char*, size_t> LittleFsWrapper::readFileChunked(
-  const std::string& filepath) {
-#ifdef ENABLE_SAFENET
-    if (!is_mounted_) {
-        throw std::runtime_error("LittleFS not mounted!");
-    }
-#endif
-
-    static std::array<char, 256> buffer{};
-    static FILE* fd = nullptr;
-
-    const std::string full_path = "/littlefs" + filepath;
-
-    // Open file on first call
-    if (!fd) {
-        fd = fopen(full_path.c_str(), "rb");
-        if (!fd) {
-            ESP_LOGE("LittleFS", "File not found: %s", full_path.c_str());
-            return {ErrorCode::FILE_NOT_FOUND, buffer.data(), 0};
-        }
-    }
-
-    size_t bytes_read = fread(buffer.data(), 1, buffer.size(), fd);
-
-    if (bytes_read < buffer.size() || feof(fd)) {
-        fclose(fd);
-        fd = nullptr;
-        return {ErrorCode::FINISHED_READ, buffer.data(), bytes_read};
-    }
-
-    return {ErrorCode::CONTINUE_READ, buffer.data(), bytes_read};
-}
-
 void LittleFsWrapper::printFilesystemInfo() {
 #ifdef ENABLE_SAFENET
     if (!is_mounted_) {
@@ -139,6 +106,45 @@ void LittleFsWrapper::init() {
     }
 }
 
+void LittleFsWrapper::write(
+  const std::string& filename,
+  const std::vector<char>& data) {
+#ifdef ENABLE_SAFENET
+    if (!is_mounted_) {
+        throw std::runtime_error("LittleFS not mounted!");
+    }
+#endif
+
+    const std::string full_path = "/littlefs/" + filename;
+
+    FILE* fd = fopen(full_path.c_str(), "wb");
+    if (!fd) {
+        ESP_LOGE("LittleFS", "Failed to open file for writing: %s", full_path.c_str());
+        int code = errno;
+        printf("errno = %d (%s)\n", code, strerror(code));
+        throw std::runtime_error("Failed to open file for writing: " + full_path);
+    }
+
+    size_t bytes_written = fwrite(data.data(), 1, data.size(), fd);
+    fclose(fd);
+
+    if (bytes_written != data.size()) {
+        ESP_LOGE(
+          "LittleFS",
+          "Failed to write all data to file: %s (wrote %zu of %zu bytes)",
+          full_path.c_str(),
+          bytes_written,
+          data.size());
+        throw std::runtime_error("Failed to write all data to file: " + full_path);
+    }
+
+    ESP_LOGI(
+      "LittleFS",
+      "Successfully wrote %zu bytes to file: %s",
+      data.size(),
+      full_path.c_str());
+}
+
 bool LittleFsWrapper::mountPrivate() {
     esp_err_t ret = esp_vfs_littlefs_register(&conf);
 
@@ -161,6 +167,47 @@ bool LittleFsWrapper::mountPrivate() {
 
     is_mounted_ = false;
     return false;
+}
+
+ReadDescriptor::ReadDescriptor(FILE* fd) : fd_(fd) {
+}
+
+bool ReadDescriptor::isValid() {
+    return fd_ != nullptr ? true : false;
+}
+
+std::tuple<ErrorCode, const char*, size_t> ReadDescriptor::readFileChunked() {
+    if (!isValid()) {
+        esp_log(kErrorLogConfig, TAG, "FD is invalid");
+        return {ErrorCode::FILE_NOT_FOUND, buffer_.data(), 0};
+    }
+
+    size_t bytes_read = fread(buffer_.data(), 1, buffer_.size(), fd_);
+
+    if (bytes_read < buffer_.size() || feof(fd_)) {
+        close();
+        return {ErrorCode::FINISHED_READ, buffer_.data(), bytes_read};
+    }
+
+    return {ErrorCode::CONTINUE_READ, buffer_.data(), bytes_read};
+}
+
+void ReadDescriptor::close() {
+#ifdef ENABLE_SAFENET
+    if (!fd_) {
+        throw std::runtime_error(
+          "Attemting to close Read Descriptor that is already closed!");
+    }
+#endif
+
+    fclose(fd_);
+    fd_ = nullptr;
+}
+
+ReadDescriptor::~ReadDescriptor() {
+    if (fd_) {
+        close();
+    }
 }
 
 }  // namespace LittleFS

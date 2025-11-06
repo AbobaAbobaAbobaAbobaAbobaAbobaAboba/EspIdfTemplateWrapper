@@ -1,5 +1,5 @@
 #include "core.hpp"
-Core::Core(const Credentials& _creds) : creds_(_creds) {
+Core::Core(const Credentials& _creds) : creds_(_creds), wrapper("/settings.ini") {
     if (instance_ != nullptr) {
         throw std::runtime_error("Core instance already exists!");
     }
@@ -14,9 +14,14 @@ void Core::init() {
       "ABOBA",
       "Time before %s ",
       sntp_wrapper_.getCurrentTime().toString().c_str());
+
     if (wifi_handler_.isConnected()) {
         sntp_wrapper_.start();
     }
+
+    wrapper.load();
+    wrapper.printContents();
+
     while (!sntp_wrapper_.is_synced()) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
