@@ -26,14 +26,7 @@ class GpioBase {
         }
 #endif
 
-        // if (expired(pin)) {
-        //     esp_log(kErrorLogConfig, "GPIO_WRAPPER", "Creating new pin");
-        //     std::lock_guard<std::mutex> lock(mutex_);
-        //     auto ptr_stump = std::shared_ptr<GpioBasicWrapper>(new GpioBase(pin));
-        //     gpio_instances_[pin] = ptr_stump;
-        //     return ptr_stump;
-        // }
-
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         return gpio_instances_[pin].lock();
     }
     virtual ~GpioBase() = default;
@@ -42,13 +35,6 @@ class GpioBase {
     }
 
   protected:
-    // static void holdPin(gpio_num_t pin) {
-
-    // }
-    // static void releasePin(gpio_num_t pin) {
-
-    // }
-
     static bool expired(gpio_num_t pin) {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         return gpio_instances_[pin].expired();

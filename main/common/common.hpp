@@ -13,6 +13,20 @@ typedef const char* TagType;
 static constexpr int WIFI_CONNECTED_BIT = BIT0;
 static constexpr int WIFI_FAIL_BIT = BIT1;
 
+struct TimeConv {
+    // Milliseconds to microseconds
+    static constexpr uint64_t ms(uint64_t ms) noexcept { return ms * 1'000ULL; }
+
+    // Seconds to microseconds
+    static constexpr uint64_t sec(uint64_t s) noexcept { return s * 1'000'000ULL; }
+
+    // Minutes to microseconds
+    static constexpr uint64_t min(uint64_t min) noexcept { return min * 60'000'000ULL; }
+
+    // Hours to microseconds
+    static constexpr uint64_t hour(uint64_t h) noexcept { return h * 3'600'000'000ULL; }
+};
+
 struct Credentials {
     std::string ssid;
     std::string password;

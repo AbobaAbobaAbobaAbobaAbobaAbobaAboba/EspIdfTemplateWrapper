@@ -2,13 +2,15 @@
 
 namespace GPIO {
 // Constructor: Initialize GPIO with specified mode and optional pull resistors
-McpwmWrapper::McpwmWrapper(gpio_num_t pin, uint32_t period_ticks, uint32_t resolution)
-    : GpioBase(pin, PinType::MCPWM) {
-    configurePin(period_ticks, resolution);
+McpwmWrapper::McpwmWrapper(gpio_num_t pin, std::shared_ptr<McpwmTimer> timer)
+    : GpioBase(pin, PinType::MCPWM),
+      timer_(timer) {
+    configurePin();
 }
 
-std::shared_ptr<McpwmWrapper>
-McpwmWrapper::createPin(gpio_num_t pin, uint32_t period_ticks, uint32_t resolution) {
+std::shared_ptr<McpwmWrapper> McpwmWrapper::createPin(
+  gpio_num_t pin,
+  std::shared_ptr<McpwmTimer> timer) {
     if (!expired(pin)) {
 #ifdef ENABLE_SAFENET
         throw std::runtime_error("Trying to create a non-expired pin");
@@ -21,44 +23,19 @@ McpwmWrapper::createPin(gpio_num_t pin, uint32_t period_ticks, uint32_t resoluti
 
     std::lock_guard<std::recursive_mutex> lock(GpioBase::mutex_);
 
-    auto ptr_stump =
-      std::shared_ptr<GpioBase>(new McpwmWrapper(pin, period_ticks, resolution));
+    auto ptr_stump = std::shared_ptr<GpioBase>(new McpwmWrapper(pin, timer));
 
     insertPin(ptr_stump);
     return std::static_pointer_cast<McpwmWrapper>(ptr_stump);
 }
 
-esp_err_t McpwmWrapper::write(uint32_t ticks) {
-#ifdef ENABLE_SAFENET
-    if (!GPIO_IS_VALID_GPIO(pin_)) {
-        throw std::invalid_argument("Invalid GPIO pin: " + std::to_string(pin_));
-        return ESP_ERR_INVALID_ARG;
-    }
-    if (!is_configured_) {
-        throw std::runtime_error(
-          "GPIO pin " + std::to_string(pin_) + " is not configured.");
-        return ESP_ERR_INVALID_STATE;
-    }
-#endif
-
-    esp_err_t ret = mcpwm_comparator_set_compare_value(cmp_, ticks);
-
-    esp_log(kInfoLogConfig, "MCPWM_PIN", "Write res: %d", ret);
+esp_err_t McpwmWrapper::stop(auto stop_mode) {
+    esp_err_t ret = mcpwm_timer_start_stop(timer_, stop_mode);
 
 #ifdef ENABLE_SAFENET
     if (ret != ESP_OK) {
         throw std::runtime_error(
-          "Failed to write to GPIO " + std::to_string(pin_) + ": "
-          + esp_err_to_name(ret));
-    }
-#endif
-
-    ret = mcpwm_timer_start_stop(timer_, MCPWM_TIMER_START_NO_STOP);
-
-#ifdef ENABLE_SAFENET
-    if (ret != ESP_OK) {
-        throw std::runtime_error(
-          "Failed to start timer: " + std::string(esp_err_to_name(ret)));
+          "Failed to stop timer: " + std::string(esp_err_to_name(ret)));
     }
 #endif
 
@@ -70,12 +47,12 @@ esp_err_t McpwmWrapper::write(uint32_t ticks) {
 }
 
 [[nodiscard]] std::tuple<
-  mcpwm_timer_config_t,
+  std::shared_ptr<McpwmTimer>,
   mcpwm_operator_config_t,
   mcpwm_comparator_config_t,
   mcpwm_generator_config_t>
 McpwmWrapper::getConfiguration() {
-    return {timer_cfg_, oper_cfg_, cmp_cfg_, gen_cfg_};
+    return {timer_, oper_cfg_, cmp_cfg_, gen_cfg_};
 }
 
 McpwmWrapper::~McpwmWrapper() {
@@ -87,43 +64,15 @@ McpwmWrapper::~McpwmWrapper() {
 
     esp_log(kInfoLogConfig, "GPIO_WRAPPER", "GPIO %d reset", pin_);
 
-    mcpwm_del_timer(timer_);
     mcpwm_del_operator(oper_);
     mcpwm_del_comparator(cmp_);
     mcpwm_del_generator(gen_);
 }
 
-void McpwmWrapper::configurePin(uint32_t period_ticks, uint32_t resolution) {
+void McpwmWrapper::configurePin() {
 #ifdef ENABLE_SAFENET
     if (!GPIO_IS_VALID_GPIO(pin_)) {
         throw std::invalid_argument("Invalid GPIO pin: " + std::to_string(pin_));
-    }
-#endif
-
-    // Configure GPIO
-    timer_cfg_ = {
-      .group_id = 0,
-      .clk_src = MCPWM_TIMER_CLK_SRC_DEFAULT,
-
-      .resolution_hz = resolution,
-      .count_mode = MCPWM_TIMER_COUNT_MODE_UP,
-      .period_ticks = period_ticks,
-
-      .intr_priority = 0,
-      .flags =
-        {.update_period_on_empty = false,
-         .update_period_on_sync = false,
-         .allow_pd = false}
-
-    };
-
-    esp_err_t err = mcpwm_new_timer(&timer_cfg_, &timer_);
-
-#ifdef ENABLE_SAFENET
-    if (err != ESP_OK) {
-        throw std::runtime_error(
-          "Failed to start timer " + std::to_string(pin_) + ": "
-          + esp_err_to_name(err));
     }
 #endif
 
@@ -140,7 +89,7 @@ void McpwmWrapper::configurePin(uint32_t period_ticks, uint32_t resolution) {
 
     };
 
-    err = mcpwm_new_operator(&oper_cfg_, &oper_);
+    esp_err_t err = mcpwm_new_operator(&oper_cfg_, &oper_);
 
 #ifdef ENABLE_SAFENET
     if (err != ESP_OK) {
@@ -149,7 +98,7 @@ void McpwmWrapper::configurePin(uint32_t period_ticks, uint32_t resolution) {
     }
 #endif
 
-    err = mcpwm_operator_connect_timer(oper_, timer_);
+    err = mcpwm_operator_connect_timer(oper_, timer_->handle());
 
 #ifdef ENABLE_SAFENET
     if (err != ESP_OK) {
@@ -224,8 +173,6 @@ void McpwmWrapper::configurePin(uint32_t period_ticks, uint32_t resolution) {
     }
 #endif
 
-    mcpwm_timer_enable(timer_);
-
 #ifdef ENABLE_SAFENET
     if (err != ESP_OK) {
         throw std::runtime_error(
@@ -234,6 +181,37 @@ void McpwmWrapper::configurePin(uint32_t period_ticks, uint32_t resolution) {
 #endif
 
     is_configured_ = true;
+}
+
+std::shared_ptr<McpwmTimer>
+McpwmTimer::createTimer(uint32_t group_id, uint32_t period_ticks, uint32_t resolution) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (size(group_id) >= SOC_MCPWM_TIMERS_PER_GROUP) {
+#ifdef ENABLE_SAFENET
+            throw std::runtime_error("Timer group has reached its maximum size");
+#elif
+            return {};
+#endif
+        }
+
+        esp_log(
+          kErrorLogConfig,
+          TAG,
+          "Creating new MCPWM timer with group %d",
+          group_id);
+
+        auto ptr_stump = std::shared_ptr<McpwmTimer>(
+          new McpwmTimer(group_id, period_ticks, resolution));
+
+        for (size_t i = 0; i < SOC_MCPWM_TIMERS_PER_GROUP; ++i) {
+            if (timers_[group_id][i].expired()) {
+                timers_[group_id][i] = ptr_stump;
+            }
+        }
+
+        return std::static_pointer_cast<McpwmTimer>(ptr_stump);
+    }
 }
 
 };  // namespace GPIO

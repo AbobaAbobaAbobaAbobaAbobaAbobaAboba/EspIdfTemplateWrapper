@@ -10,6 +10,7 @@ set(MY_ESP_COMPONENTS
     esp_driver_mcpwm
     lwip
     littlefs
+    esp_timer
 )
 
 idf_component_register(SRCS "main.cpp"
@@ -23,6 +24,7 @@ idf_component_register(SRCS "main.cpp"
     "common/common.cpp"
     "gpio_wrappers/mcpwm_wrapper/mcpwm_wrapper.cpp"
     "sntp_wrapper/sntp_wrapper.cpp"
+    "scheduler/scheduler.cpp"
      REQUIRES ${MY_ESP_COMPONENTS}
 INCLUDE_DIRS ".")
 

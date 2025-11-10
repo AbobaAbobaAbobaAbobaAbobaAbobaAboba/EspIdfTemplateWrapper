@@ -13,7 +13,7 @@ class GpioBasicWrapper : public GpioBase {
     static std::shared_ptr<GpioBasicWrapper>
     createPin(gpio_num_t pin, gpio_mode_t mode, PullMode pull_mode);
 
-    esp_err_t write(int level);
+        esp_err_t write(int level);
     int read();
 
     [[nodiscard]] bool isConfigured() const;

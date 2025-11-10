@@ -38,7 +38,7 @@ void true_main() {
         initBlink();
 
         Core core({"kgsn2g", "kbtaPR45ka$"});
-
+        // Core core({"S98Pro", "AbobaAboba"});
         while (true) {
             std::cout << "vremya tyanut rezinu..." << std::endl;
 

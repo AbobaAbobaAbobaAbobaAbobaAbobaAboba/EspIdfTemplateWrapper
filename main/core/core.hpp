@@ -19,7 +19,17 @@ class Core {
 
   private:
     void init();
+    void blinkCrap() {
+        global::led_pin->write(true);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        global::led_pin->write(false);
+        vTaskDelay(pdMS_TO_TICKS(100));
 
+        global::led_pin->write(true);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        global::led_pin->write(false);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
     static void applyPacket(
       std::shared_ptr<WSPacket::PacketBase> packet,
       [[maybe_unused]] int sockfd);

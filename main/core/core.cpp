@@ -1,4 +1,5 @@
 #include "core.hpp"
+#include "../scheduler/scheduler.hpp"
 Core::Core(const Credentials& _creds) : creds_(_creds), wrapper("/settings.ini") {
     if (instance_ != nullptr) {
         throw std::runtime_error("Core instance already exists!");
@@ -63,8 +64,10 @@ void Core::applyPacket(
 void Core::applyLED(
   const WSPacket::PacketLED* led_packet,
   [[maybe_unused]] int sockfd) {
-    global::led_pin->write(led_packet->state);
-
+    // global::led_pin->write(led_packet->state);
+    Scheduler::Scheduler::schedule(TimeConv::sec(3), true, [&]() {
+        this->blinkCrap();
+    });
     esp_log(
       kInfoLogConfig,
       "CORE",
@@ -79,8 +82,8 @@ void Core::applyServo(
   const WSPacket::PacketServo* servo_packet,
   [[maybe_unused]] int sockfd) {
     constexpr static int angle = (2500 - 500) / 180;
-
-    global::pwm_pin->write(500 + servo_packet->value * angle);
+    throw std::runtime_error("not implemented servo");
+    // global::pwm_pin->write(500 + servo_packet->value * angle);
 
     esp_log(kInfoLogConfig, "CORE", "Servo value changed to: %d", servo_packet->value);
     std::unique_ptr<WSPacket::PacketRespBase> packet =

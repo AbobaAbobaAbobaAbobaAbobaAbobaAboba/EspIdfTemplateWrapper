@@ -1,7 +1,10 @@
 #include "common.hpp"
 #include "../littlefs_wrapper/littlefs_wrapper.hpp"
+#include "../scheduler/scheduler.hpp"
+
 void initializeSystem() {
     // System initialization
+
     esp_err_t err = nvs_flash_init();
     ESP_ERROR_CHECK(err);
 
@@ -22,6 +25,7 @@ void initializeSystem() {
     // if (led->isConfigured() == false) {
     //     led->configure(GPIO_MODE_OUTPUT, GPIO::PullMode::NONE);
     // }
+    Scheduler::Scheduler::init();
 }
 void initializeWifiStack() {
     esp_netif_create_default_wifi_sta();

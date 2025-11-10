@@ -83,10 +83,10 @@ void WifiHandler::event_handler(
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         handler->handleWifiDisconnect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
-        handler->handleWifiConnected();
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         // Handle IP address assignment
         auto* event = static_cast<ip_event_got_ip_t*>(event_data);
+        handler->handleWifiConnected();
         handler->handleGotIp(event);
     }
 }
