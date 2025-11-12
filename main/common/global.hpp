@@ -1,5 +1,6 @@
 #ifndef GLOBAL_HPP
 #define GLOBAL_HPP
+
 #include "../gpio_wrappers/gpio_basic_wrapper/gpio_basic_wrapper.hpp"
 #include "../gpio_wrappers/mcpwm_wrapper/mcpwm_wrapper.hpp"
 namespace global {
@@ -16,7 +17,6 @@ inline void initGlobalPins() {
 
     global::timer1 = GPIO::McpwmTimer::createTimer(0, 4000, 1'000'000);
     global::motor_pin = GPIO::McpwmWrapper::createPin(GPIO_NUM_25, global::timer1);
-    global::motor_pin->write(1000);
 }
 }  // namespace global
 

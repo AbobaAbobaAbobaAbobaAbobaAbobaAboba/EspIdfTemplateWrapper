@@ -11,6 +11,7 @@ set(MY_ESP_COMPONENTS
     lwip
     littlefs
     esp_timer
+    esp_driver_dac
 )
 
 idf_component_register(SRCS "main.cpp"

@@ -112,5 +112,6 @@
     "*.inc": "cpp"
   },
   "idf.pythonInstallPath": "/opt/esp/python_env/idf6.0_py3.12_env/bin/python",
-  "idf.monitorPort": "/dev/ttyUSB1"
+  "idf.monitorPort": "/dev/ttyUSB1",
+  "C_Cpp.errorSquiggles": "Disabled"
 }

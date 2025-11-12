@@ -1,6 +1,7 @@
 
 #include "common/common.hpp"
 #include "core/core.hpp"
+#include "scheduler/scheduler.hpp"
 #include <driver/gpio.h>
 #include <iostream>
 static void blinkLED(int interval = 100) {
@@ -39,9 +40,19 @@ void true_main() {
 
         Core core({"kgsn2g", "kbtaPR45ka$"});
         // Core core({"S98Pro", "AbobaAboba"});
+        auto exec_callback = []() { std::cout << "executed!" << std::endl; };
+        auto error_callback = [](esp_err_t error) {
+            std::cout << "received error: " << error << std::endl;
+        };
+        Scheduler::Scheduler::schedule_at(
+          16,
+          49,
+          59,
+          false,
+          exec_callback,
+          error_callback,
+          "aboba");
         while (true) {
-            std::cout << "vremya tyanut rezinu..." << std::endl;
-
             vTaskDelay(pdMS_TO_TICKS(1000));
         };
 #ifdef ENABLE_SAFENET

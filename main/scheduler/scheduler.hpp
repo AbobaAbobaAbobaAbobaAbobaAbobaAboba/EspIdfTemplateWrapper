@@ -13,22 +13,25 @@
 #include <mutex>
 #include <tuple>
 namespace Scheduler {
-
+constexpr uint64_t day_in_microseconds = /*24 * 60 * 60 **/ 1 * 1000000ULL;
 enum class Status : uint8_t {
     PENDING = 0,
     ERROR
 };
+
+enum class TaskType : uint8_t {
+    TIMEOUT,
+    ALARM,
+    SINGLESHOT
+};
+
 struct Task {
     /// @brief
     /// if ERROR is fired
     /// owner of the task has to clear it manually
     /// otherwise it will hang there forever
 
-    Task() {
-#ifdef ENABLE_SAFENET
-        esp_log(kErrorLogConfig, TAG, "TASK CREATED");
-#endif
-    }
+    Task();
 
     Task(const Task& other) = delete;
     Task(Task&& other) = default;
@@ -36,27 +39,18 @@ struct Task {
     Task& operator=(const Task& other) = delete;
     Task& operator=(Task&& other) = default;
 
-    ~Task() {
-        if (timer_) {
-            esp_timer_delete(timer_);
-        }
-#ifdef ENABLE_SAFENET
-        if (id_) {
-            esp_log(kErrorLogConfig, TAG, "TASK REMOVED %d", *id_);
-        } else {
-            esp_log(kErrorLogConfig, TAG, "TASK REMOVED WITH EMPTY ID");
-        }
-#endif
-    }
+    ~Task();
     std::unique_ptr<int> id_;
     std::string name_;
     esp_timer_handle_t timer_ = nullptr;
     Status status_ = Status::ERROR;
     std::function<void()> cb_;
-    bool is_singleshot_ = true;
+    std::function<void(esp_err_t)> error_cb_ = nullptr;
+    TaskType task_type_;
 
     inline static constexpr TagType TAG = "TASK";
 };
+
 class Scheduler {
   public:
     Scheduler() = delete;
@@ -65,31 +59,38 @@ class Scheduler {
     Scheduler(Scheduler&& other) = delete;
     Scheduler& operator=(Scheduler&& other) = delete;
 
-    static void init() {
-        if (is_init_) return;
-
-        xTaskCreate(&Scheduler::worker, "worker", 4096, nullptr, 5, nullptr);
-    }
+    static void init();
     static Status getStatus(int id) { return {}; }
 
     static std::tuple<Status, int> schedule(
       uint64_t microseconds,
       bool is_singleshot,
-      const std::function<void()>& callback,
+      const std::function<void()>& execute_callback,
+      const std::function<void(esp_err_t)>& error_callback = nullptr,
       const std::string& name = "");
 
+    static std::tuple<Status, int> schedule_at(
+      int hour,
+      int minute,
+      int second,
+      bool is_singleshot,
+      const std::function<void()>& execute_callback,
+      const std::function<void(esp_err_t)>& error_callback,
+      const std::string& name);
+
     static bool unschedule(int id);
+    static bool forceExecute(int id) { return innerExecute(id); }
 
   private:
-    static void handler(void* arg) {
-        int id = *static_cast<int*>(arg);
+    static void handler(void* arg);
+    static bool innerExecute(int id);
 
-        esp_log(kInfoLogConfig, TAG, "Timer fired! Sending ID to worker: %d", id);
-
-        // Send ID to worker queue (from ISR or timer callback is safe)
-        BaseType_t higher_priority_task_woken = pdFALSE;
-        xQueueSendFromISR(id_queue_, &id, &higher_priority_task_woken);
-    }
+    static std::tuple<Status, int> innerSchedule(
+      uint64_t microseconds,
+      TaskType task_type,
+      const std::function<void()>& execute_callback,
+      const std::function<void(esp_err_t)>& error_callback,
+      const std::string& name);
 
     static void worker([[maybe_unused]] void* pvParameters);
 

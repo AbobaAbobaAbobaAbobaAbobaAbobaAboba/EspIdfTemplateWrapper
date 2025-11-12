@@ -14,7 +14,9 @@ enum class PullMode {
 enum class PinType : uint8_t {
     ABSTRACT = 0,
     BASIC,
-    MCPWM
+    MCPWM,
+    I2S,
+    DAC
 };
 class GpioBase {
   public:
