@@ -10,29 +10,15 @@ Core::Core(const Credentials& _creds) : creds_(_creds), wrapper("/settings.ini")
 void Core::init() {
     wifi_handler_.connect(creds_.ssid, creds_.password, 20);
     wifi_handler_.waitForConnected();
-    esp_log(
-      kErrorLogConfig,
-      "ABOBA",
-      "Time before %s ",
-      sntp_wrapper_.getCurrentTime().toString().c_str());
 
     if (wifi_handler_.isConnected()) {
-        sntp_wrapper_.start();
+        SntpWrapper::start();
     }
 
     wrapper.load();
     wrapper.printContents();
 
-    while (!sntp_wrapper_.is_synced()) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-    esp_log(
-      kErrorLogConfig,
-      "ABOBA",
-      "Time after %s ",
-      sntp_wrapper_.getCurrentTime().toString().c_str());
-
-    http_server_.startWebserver();
+        http_server_.startWebserver();
     http_server_.registerCallback(&Core::applyPacket);
 }
 void Core::applyPacket(
@@ -49,6 +35,18 @@ void Core::applyPacket(
             WSPacket::PacketServo* servo_packet =
               static_cast<WSPacket::PacketServo*>(packet.get());
             instance_->applyServo(servo_packet, sockfd);
+            break;
+        }
+        case WSPacket::PacketType::TASK_START: {
+            WSPacket::PacketTaskStart* temp_packet =
+              static_cast<WSPacket::PacketTaskStart*>(packet.get());
+            instance_->applyTaskStart(temp_packet, sockfd);
+            break;
+        }
+        case WSPacket::PacketType::TASK_STOP: {
+            WSPacket::PacketTaskStop* temp_packet =
+              static_cast<WSPacket::PacketTaskStop*>(packet.get());
+            instance_->applyTaskStop(temp_packet, sockfd);
             break;
         }
         default:

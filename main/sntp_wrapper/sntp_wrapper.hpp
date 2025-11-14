@@ -7,6 +7,8 @@
 #include <ctime>
 #include <format>
 #include <string>
+constexpr uint32_t kSyncInterval = 6UL * 60UL * 60UL * 1000UL;
+
 struct Time {
     uint8_t year;
     uint8_t month;
@@ -29,41 +31,19 @@ struct Time {
 
 class SntpWrapper {
   public:
-    SntpWrapper() {}
+    SntpWrapper() = delete;
     SntpWrapper(const SntpWrapper& _other) = delete;
     SntpWrapper(SntpWrapper&& _other) = delete;
     SntpWrapper& operator=(const SntpWrapper& _other) = delete;
     SntpWrapper& operator=(SntpWrapper&& _other) = delete;
 
-    void start() {
-        esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("0.ru.pool.ntp.org");
-
-        // Add more servers
-        config.servers[1] = "1.ru.pool.ntp.org";
-        config.servers[2] = "2.ru.pool.ntp.org";
-        config.num_of_servers = 3;
-        setenv("TZ", "MSK-3", 1);
-
-        config.sync_cb = time_sync_notification_cb;
-
-        esp_netif_sntp_init(&config);
-    }
-
-    static void time_sync_notification_cb(struct timeval* tv) {
-        std::time_t sec = tv->tv_sec;
-        std::tm* tm_info = std::localtime(&sec);
-        char time_str[64];
-        std::strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", tm_info);
-        esp_log(kInfoLogConfig, TAG, "%s", time_str);
-    }
-
     void stop() { esp_netif_sntp_deinit(); }
 
     // Check if time synchronization is complete
-    static bool is_synced() {
+    static bool isSynced() {
         return esp_sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED;
     }
-
+    static bool isInit() { return is_init_; }
     // Wait for time synchronization with a timeout
     esp_err_t syncWait(std::chrono::milliseconds timeout) {
         return esp_netif_sntp_sync_wait(pdMS_TO_TICKS(timeout.count()));
@@ -89,6 +69,35 @@ class SntpWrapper {
     }
 
   private:
+    friend class Core;
+    static void start() {
+        esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("0.ru.pool.ntp.org");
+
+        esp_sntp_set_sync_interval(kSyncInterval);
+
+        // Add more servers
+        config.servers[1] = "1.ru.pool.ntp.org";
+        config.servers[2] = "2.ru.pool.ntp.org";
+        config.num_of_servers = 3;
+        setenv("TZ", "MSK-3", 1);
+        config.sync_cb = time_sync_notification_cb;
+
+        esp_netif_sntp_init(&config);
+
+        while (!SntpWrapper::isSynced()) {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+        is_init_ = true;
+    }
+    static void time_sync_notification_cb(struct timeval* tv) {
+        std::time_t sec = tv->tv_sec;
+        std::tm* tm_info = std::localtime(&sec);
+        char time_str[64];
+        std::strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", tm_info);
+        esp_log(kInfoLogConfig, TAG, "Time is synced! %s", time_str);
+    }
+
+    inline static bool is_init_ = false;
     inline static constexpr TagType TAG = "SNTP_WRAPPER";
 };
 #endif

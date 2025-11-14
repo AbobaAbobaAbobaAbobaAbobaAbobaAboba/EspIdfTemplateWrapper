@@ -18,6 +18,13 @@ inline void initGlobalPins() {
     global::timer1 = GPIO::McpwmTimer::createTimer(0, 4000, 1'000'000);
     global::motor_pin = GPIO::McpwmWrapper::createPin(GPIO_NUM_25, global::timer1);
 }
+
+inline void blinkLED(int interval = 100) {
+    global::led_pin->write(1);
+    vTaskDelay(pdMS_TO_TICKS(interval));
+    global::led_pin->write(0);
+    vTaskDelay(pdMS_TO_TICKS(interval));
+}
 }  // namespace global
 
 #endif

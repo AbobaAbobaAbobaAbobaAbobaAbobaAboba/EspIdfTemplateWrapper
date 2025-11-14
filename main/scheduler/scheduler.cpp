@@ -1,4 +1,5 @@
 #include "scheduler.hpp"
+#include "../common/global.hpp"
 namespace Scheduler {
 void Scheduler::init() {
     if (is_init_) return;
@@ -55,11 +56,11 @@ std::tuple<Status, int> Scheduler::schedule_at(
         esp_log(
           kErrorLogConfig,
           TAG,
-          "Current time exceeds specified one %d:%d:%d",
+          "Current time exceeds the specified one %d:%d:%d",
           target.tm_hour,
           target.tm_min,
           target.tm_sec);
-        target_time += 86400;  // 24 hours in seconds.
+        target_time += day_in_seconds;  // 24 hours in seconds.
     }
 
     uint64_t seconds_to_wait = static_cast<uint64_t>(target_time - now);
@@ -113,33 +114,38 @@ std::tuple<Status, int> Scheduler::innerSchedule(
       .name = task.name_.c_str(),
       .skip_unhandled_events = false};
 
-    esp_err_t err = esp_timer_create(&timer_cfg, &task.timer_);
-
+    esp_err_t start_err = task.createTimer(timer_cfg);
 #ifdef ENABLE_SAFENET
-    if (err != ESP_OK) {
-        task.status_ = Status::ERROR;
-        throw std::runtime_error("Failed to start timer!");
+    if (start_err != ESP_OK) {
+        throw std::runtime_error("Failed to start the timer");
+    }
+#elif
+    if (start_err != ESP_OK) {
+        return {Status::ERROR, res};
     }
 #endif
-    task_map_[id_counter_] = std::move(task);
-
-    esp_err_t start_err;
-
     switch (task.task_type_) {
         case TaskType::TIMEOUT:
-            start_err = esp_timer_start_periodic(task.timer_, microseconds);
+            start_err = task.startPeriodic(microseconds);
             break;
         case TaskType::ALARM:
-            start_err = esp_timer_start_once(task.timer_, microseconds);
+            start_err = task.startOnce(microseconds);
             break;
         case TaskType::SINGLESHOT:
-            start_err = esp_timer_start_once(task.timer_, microseconds);
+            start_err = task.startOnce(microseconds);
+            break;
+        case TaskType::SYNCED:
+            start_err = task.startSynced(microseconds);
             break;
         default: {
+#ifdef ENABLE_SAFENET
             throw std::runtime_error("Unexpected  state in scheduler");
+#elif
+            return {Status::ERROR, res};
+#endif
         }
     }
-
+    task_map_.emplace(id_counter_, std::move(task));
     const int res = id_counter_;
     ++id_counter_;
 
@@ -151,7 +157,8 @@ std::tuple<Status, int> Scheduler::innerSchedule(
 
 bool Scheduler::Scheduler::unschedule(int id) {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto it = task_map_.find(id_counter_);
+    esp_log(kErrorLogConfig, TAG, "Attempting to unschedule %d", id);
+    auto it = task_map_.find(id);
 
     if (it != task_map_.end()) {
         task_map_.erase(it);
@@ -195,10 +202,8 @@ bool Scheduler::innerExecute(int id) {
 
     switch (it->second.task_type_) {
         case TaskType::ALARM: {
-            esp_err_t err =
-              esp_timer_start_periodic(it->second.timer_, day_in_microseconds);
-
-            it->second.task_type_ = TaskType::TIMEOUT;
+            esp_err_t err = it->second.startSynced(day_in_microseconds);
+            it->second.task_type_ = TaskType::SYNCED;
 
             if (err != ESP_OK) {
                 it->second.status_ = Status::ERROR;
@@ -215,6 +220,19 @@ bool Scheduler::innerExecute(int id) {
         case TaskType::SINGLESHOT:
             task_map_.erase(it);
             break;
+        case TaskType::SYNCED: {
+            esp_err_t err = it->second.continueSynced();
+
+            if (err != ESP_OK) {
+                it->second.status_ = Status::ERROR;
+            }
+
+            if (it->second.error_cb_) {
+                it->second.error_cb_(err);
+            } else {
+                esp_log(kErrorLogConfig, TAG, "error_cb is not present!");
+            }
+        }
         default: {
             break;
         }
@@ -231,9 +249,67 @@ void Scheduler::Scheduler::worker([[maybe_unused]] void* pvParameters) {
     for (;;) {
         // Block until something arrives in the queue
         if (xQueueReceive(id_queue_, &id, portMAX_DELAY) == pdTRUE) {
-            innerExecute(id);
-            esp_log(kInfoLogConfig, TAG, "Worker has finished working on %d!", id);
-            esp_log(kErrorLogConfig, TAG, "MAP SIZE %d!", task_map_.size());
+            try {
+                innerExecute(id);
+            } catch (const std::exception& e) {
+                while (true) {
+                    esp_log(
+                      kErrorLogConfig,
+                      "EXCEPTION",
+                      "%s"
+                      "\n",
+                      e.what());
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                };
+            } catch (const char* msg) {
+                while (true) {
+                    esp_log(
+                      kErrorLogConfig,
+                      "EXCEPTION",
+                      "%s"
+                      "\n",
+                      msg);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                };
+            } catch (int code) {
+                while (true) {
+                    esp_log(
+                      kErrorLogConfig,
+                      "EXCEPTION",
+                      "%d"
+                      "\n",
+                      code);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                };
+            } catch (...) {
+                while (true) {
+                    esp_log(
+                      kErrorLogConfig,
+                      "EXCEPTION",
+                      "Unknown exception occurred\n");
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    global::blinkLED(100);
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                };
+            }
         }
     }
 }
@@ -244,9 +320,59 @@ Task::Task() {
 #endif
 }
 
+Task::Task(Task&& other) noexcept
+    : name_(std::move(other.name_)),
+      id_(std::move(other.id_)),
+      timer_(std::exchange(other.timer_, nullptr)),
+      status_(std::exchange(other.status_, Status::INVALID)),
+      task_type_(other.task_type_),
+      cb_(std::move(other.cb_)),
+      error_cb_(std::move(other.error_cb_)),
+      expected_time_(std::move(other.expected_time_)) {
+    esp_log(kInfoLogConfig, TAG, "Move constructor is invoked!");
+}
+
+Task& Task::operator=(Task&& other) noexcept {
+    if (this == &other) {
+        return *this;
+    }
+    esp_log(kInfoLogConfig, TAG, "Move assignment is invoked!");
+    // Release current timer if necessary (assuming destructor logic handles
+    // deletion; call it explicitly here to free resources before moving).
+    if (timer_) {
+        esp_err_t err = esp_timer_stop(timer_);
+
+        if (err != ESP_OK) {
+            esp_log(
+              kErrorLogConfig,
+              TAG,
+              "Error during the stopping of the timer! %s",
+              esp_err_to_name(err));
+        }
+
+        err = esp_timer_delete(timer_);
+        if (err != ESP_OK) {
+            esp_log(
+              kErrorLogConfig,
+              TAG,
+              "Error during the deletion of the timer! %s",
+              esp_err_to_name(err));
+        }
+    }
+    id_ = std::move(other.id_);
+    name_ = std::move(other.name_);
+    timer_ = std::exchange(other.timer_, nullptr);
+    status_ = std::exchange(other.status_, Status::INVALID);
+    cb_ = std::move(other.cb_);
+    error_cb_ = std::move(other.error_cb_);
+    task_type_ = other.task_type_;
+    expected_time_ = std::move(other.expected_time_);
+    return *this;
+}
+
 Task::~Task() {
     if (timer_) {
-        esp_timer_delete(timer_);
+        deleteTimer();
     }
 #ifdef ENABLE_SAFENET
     if (id_) {
@@ -256,4 +382,64 @@ Task::~Task() {
     }
 #endif
 }
+
+esp_err_t Task::createTimer(const esp_timer_create_args_t& timer_cfg) {
+    esp_err_t err = esp_timer_create(&timer_cfg, &timer_);
+
+#ifdef ENABLE_SAFENET
+    if (err != ESP_OK) {
+        status_ = Status::ERROR;
+        throw std::runtime_error("Failed to start timer!");
+    }
+
+#endif
+
+    return err;
+}
+
+esp_err_t Task::startOnce(uint64_t microseconds) {
+    return esp_timer_start_once(timer_, microseconds);
+}
+
+esp_err_t Task::startPeriodic(uint64_t microseconds) {
+    return esp_timer_start_periodic(timer_, microseconds);
+}
+
+esp_err_t Task::stop() {
+    return esp_timer_stop(timer_);
+}
+
+esp_err_t Task::deleteTimer() {
+    esp_err_t err = esp_timer_stop(timer_);
+
+    if (err != ESP_OK) {
+        esp_log(
+          kErrorLogConfig,
+          TAG,
+          "Error during stopping of the timer! %s",
+          esp_err_to_name(err));
+        return err;
+    }
+
+    err = esp_timer_delete(timer_);
+    if (err != ESP_OK) {
+        esp_log(
+          kErrorLogConfig,
+          TAG,
+          "Error during deletion of the timer! %s",
+          esp_err_to_name(err));
+        return err;
+    }
+    return err;
+}
+
+std::optional<uint64_t> Task::getPeriod() {
+    uint64_t period_us;
+    esp_err_t err = esp_timer_get_period(timer_, &period_us);
+    if (err != ESP_OK) {
+        return std::nullopt;
+    }
+    return period_us;
+}
+
 };  // namespace Scheduler

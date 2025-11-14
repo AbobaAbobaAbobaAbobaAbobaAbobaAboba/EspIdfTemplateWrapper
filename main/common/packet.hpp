@@ -9,7 +9,10 @@ namespace WSPacket {
 
 enum class PacketType : int {
     LED = 0,
-    SERVO = 1
+    SERVO = 1,
+    TASK_START = 2,
+    TASK_STOP = 3,
+    COUNT
 };
 enum class RespType : int {
     OK = 0,
@@ -45,6 +48,27 @@ struct PacketServo : public PacketBase {
     PacketServo(int _value) : PacketBase{PacketType::SERVO}, value{_value} {}
     int value;
 };
+
+struct PacketTaskStart : public PacketBase {
+    PacketTaskStart(int _hour, int _minute, int _second)
+        : PacketBase{PacketType::TASK_START},
+          hour{_hour},
+          minute{_minute},
+          second{_second} {}
+    int hour;
+    int minute;
+    int second;
+};
+
+struct PacketTaskStop : public PacketBase {
+    PacketTaskStop(int _id) : PacketBase{PacketType::TASK_STOP}, id(_id) {}
+    int id;
+};
+
+static_assert(
+  4 == static_cast<int>(PacketType::COUNT),
+  "PacketType::COUNT mismatch. Check if enough Packet structs exist");
+
 // ========
 struct PacketRespBase : public PacketBase {
     PacketRespBase(PacketType _type, RespType _resp)
@@ -76,6 +100,26 @@ struct PacketRespServo : public PacketRespBase {
         return PacketRespBase::generateJson();
     }
 };
+
+struct PacketRespTaskStart : public PacketRespBase {
+    PacketRespTaskStart(RespType _resp) : PacketRespBase{PacketType::LED, _resp} {}
+
+    virtual JsonWrapper generateJson() const override {
+        return PacketRespBase::generateJson();
+    }
+};
+
+struct PacketRespTaskStop : public PacketRespBase {
+    PacketRespTaskStop(RespType _resp) : PacketRespBase{PacketType::LED, _resp} {}
+
+    virtual JsonWrapper generateJson() const override {
+        return PacketRespBase::generateJson();
+    }
+};
+
+static_assert(
+  4 == static_cast<int>(PacketType::COUNT),
+  "PacketType::COUNT mismatch. Check if enough RESP structs exist");
 
 };  // namespace WSPacket
 

@@ -2,29 +2,42 @@
 #define SCHEDULER_HPP
 
 #include "../common/common.hpp"
+#include "../sntp_wrapper/sntp_wrapper.hpp"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include <atomic>
+#include <cmath>
 #include <forward_list>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <tuple>
+#include <utility>
 namespace Scheduler {
-constexpr uint64_t day_in_microseconds = /*24 * 60 * 60 **/ 1 * 1000000ULL;
+constexpr uint64_t day_in_microseconds = 1 * 1 * 60 * 1 * 1000000ULL;
+constexpr uint64_t day_in_seconds = /*24 * 60 * 60*/ 30 * 60;  // 05hrs //86400;
+
 enum class Status : uint8_t {
     PENDING = 0,
-    ERROR
+    ERROR,
+    INVALID
 };
 
 enum class TaskType : uint8_t {
     TIMEOUT,
     ALARM,
-    SINGLESHOT
+    SINGLESHOT,
+    SYNCED,
+    INVALID
 };
-
+// aboba look here
+//я создал таймер на 18:03
+//  по идее он должен работать раз в час, т.е 19 03. 20 03, и тж
+//  и создал таймер на следующие сутки, на 18:00, т.е он должен
+//  выстрелить 1 раз в 18:30 и потом каждые 60 минут, т.е 18:30, 19:30 20:30
 struct Task {
     /// @brief
     /// if ERROR is fired
@@ -34,20 +47,77 @@ struct Task {
     Task();
 
     Task(const Task& other) = delete;
-    Task(Task&& other) = default;
 
     Task& operator=(const Task& other) = delete;
-    Task& operator=(Task&& other) = default;
+
+    Task(Task&& other) noexcept;
+    Task& operator=(Task&& other) noexcept;
 
     ~Task();
-    std::unique_ptr<int> id_;
+
+    esp_err_t createTimer(const esp_timer_create_args_t& timer_cfg);
+    esp_err_t startOnce(uint64_t microseconds);
+    esp_err_t startPeriodic(uint64_t microseconds);
+    esp_err_t startSynced(uint64_t microseconds) {
+        if (!SntpWrapper::isInit()) {
+#ifdef ENABLE_SAFENET
+            throw std::runtime_error(
+              "Attempting to create timed task when global time is not init");
+#elif
+            esp_log(
+              kErrorLogConfig,
+              TAG,
+              "Attempting to create timed task when global time is not init");
+#endif
+        }
+        sync_period_ = microseconds;
+        expected_time_ = std::make_unique<time_t>(time(nullptr));
+        *expected_time_ +=
+          static_cast<time_t>(sync_period_) / static_cast<time_t>(1'000'000);
+        return startOnce(microseconds);
+    }
+    esp_err_t continueSynced() {
+        if (!expected_time_) {
+            throw std::runtime_error(
+              "attempting continue synced when timer is not a sync one!");
+        }
+
+        const time_t now_time = time(nullptr);
+
+        const time_t diff = now_time - *expected_time_;
+
+        *expected_time_ +=
+          static_cast<time_t>(sync_period_) / static_cast<time_t>(1'000'000);
+
+        const time_t abs_diff = std::abs(diff);
+
+        esp_log(kInfoLogConfig, TAG, "The difference was %d %d", diff, abs_diff);
+
+        if (abs_diff < 1) {
+            return startOnce(sync_period_);
+        }
+
+        return startOnce(sync_period_ - diff * static_cast<uint64_t>(1'000'000));
+    }
+    esp_err_t stop();
+    esp_err_t deleteTimer();
+
     std::string name_;
+
+    std::unique_ptr<int> id_;
     esp_timer_handle_t timer_ = nullptr;
+
     Status status_ = Status::ERROR;
-    std::function<void()> cb_;
-    std::function<void(esp_err_t)> error_cb_ = nullptr;
     TaskType task_type_;
 
+    std::function<void()> cb_;
+    std::function<void(esp_err_t)> error_cb_ = nullptr;
+
+    std::optional<uint64_t> getPeriod();
+
+  private:
+    std::unique_ptr<time_t> expected_time_ = nullptr;
+    uint64_t sync_period_ = 0;
     inline static constexpr TagType TAG = "TASK";
 };
 
@@ -76,7 +146,7 @@ class Scheduler {
       bool is_singleshot,
       const std::function<void()>& execute_callback,
       const std::function<void(esp_err_t)>& error_callback,
-      const std::string& name);
+      const std::string& name = "");
 
     static bool unschedule(int id);
     static bool forceExecute(int id) { return innerExecute(id); }

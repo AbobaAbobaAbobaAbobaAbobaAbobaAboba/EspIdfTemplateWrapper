@@ -1,25 +1,20 @@
 
 #include "common/common.hpp"
+#include "common/global.hpp"
 #include "core/core.hpp"
 #include "scheduler/scheduler.hpp"
 #include <driver/gpio.h>
 #include <iostream>
-static void blinkLED(int interval = 100) {
-    global::led_pin->write(1);
-    vTaskDelay(pdMS_TO_TICKS(interval));
-    global::led_pin->write(0);
-    vTaskDelay(pdMS_TO_TICKS(interval));
-}
 static void initBlink() {
     for (int i = 0; i < 10; ++i) {
-        blinkLED(50);
+        global::blinkLED(50);
     }
 }
 static void verifySystem() {
     if (SystemStatus::getSystemStatus() != true) {
         esp_log(kErrorLogConfig, "FATAL", "System initialization failed!\n");
         while (true) {
-            blinkLED(100);
+            global::blinkLED(100);
             LittleFS::LittleFsWrapper::printFilesystemInfo();
             LittleFS::LittleFsWrapper::printFiles();
         }
@@ -40,20 +35,10 @@ void true_main() {
 
         Core core({"kgsn2g", "kbtaPR45ka$"});
         // Core core({"S98Pro", "AbobaAboba"});
-        auto exec_callback = []() { std::cout << "executed!" << std::endl; };
-        auto error_callback = [](esp_err_t error) {
-            std::cout << "received error: " << error << std::endl;
-        };
-        Scheduler::Scheduler::schedule_at(
-          16,
-          49,
-          59,
-          false,
-          exec_callback,
-          error_callback,
-          "aboba");
+        time_t now = time(nullptr);
+        std::cout << "CORE START TIME: " << ctime(&now) << std::endl;
         while (true) {
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            vTaskDelay(pdMS_TO_TICKS(3000));
         };
 #ifdef ENABLE_SAFENET
     } catch (const std::exception& e) {
@@ -64,11 +49,11 @@ void true_main() {
               "%s"
               "\n",
               e.what());
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
             vTaskDelay(pdMS_TO_TICKS(1000));
         };
     } catch (const char* msg) {
@@ -79,11 +64,11 @@ void true_main() {
               "%s"
               "\n",
               msg);
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
             vTaskDelay(pdMS_TO_TICKS(1000));
         };
     } catch (int code) {
@@ -94,21 +79,21 @@ void true_main() {
               "%d"
               "\n",
               code);
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
             vTaskDelay(pdMS_TO_TICKS(1000));
         };
     } catch (...) {
         while (true) {
             esp_log(kErrorLogConfig, "EXCEPTION", "Unknown exception occurred\n");
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
-            blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
             vTaskDelay(pdMS_TO_TICKS(1000));
         };
     }
