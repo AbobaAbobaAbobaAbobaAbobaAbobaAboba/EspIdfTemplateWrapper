@@ -71,33 +71,52 @@ struct Task {
 #endif
         }
         sync_period_ = microseconds;
-        expected_time_ = std::make_unique<time_t>(time(nullptr));
-        *expected_time_ +=
-          static_cast<time_t>(sync_period_) / static_cast<time_t>(1'000'000);
+
+        timeval tv;
+        gettimeofday(&tv, nullptr);
+        uint64_t now_micros =
+          static_cast<uint64_t>(tv.tv_sec) * 1000000ULL + tv.tv_usec;
+
+        expected_time_ = std::make_unique<uint64_t>(now_micros + sync_period_);
         return startOnce(microseconds);
     }
+
     esp_err_t continueSynced() {
         if (!expected_time_) {
             throw std::runtime_error(
               "attempting continue synced when timer is not a sync one!");
         }
 
-        const time_t now_time = time(nullptr);
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        uint64_t now_micros =
+          static_cast<uint64_t>(tv.tv_sec) * 1000000ULL + tv.tv_usec;
 
-        const time_t diff = now_time - *expected_time_;
+        const int64_t diff_micros =
+          static_cast<int64_t>(now_micros) - static_cast<int64_t>(*expected_time_);
 
-        *expected_time_ +=
-          static_cast<time_t>(sync_period_) / static_cast<time_t>(1'000'000);
+        *expected_time_ += sync_period_;
 
-        const time_t abs_diff = std::abs(diff);
+        const uint64_t abs_diff_micros = std::abs(diff_micros);
 
-        esp_log(kInfoLogConfig, TAG, "The difference was %d %d", diff, abs_diff);
+        esp_log(
+          kInfoLogConfig,
+          TAG,
+          "The difference was %lld %llu microseconds",
+          diff_micros,
+          abs_diff_micros);
 
-        if (abs_diff < 1) {
+        if (abs_diff_micros < 1'000'000) {  // Example threshold: 1ms; adjust as needed
+                                            // (original was ~1s)
             return startOnce(sync_period_);
         }
 
-        return startOnce(sync_period_ - diff * static_cast<uint64_t>(1'000'000));
+        int64_t adjusted_period = static_cast<int64_t>(sync_period_) - diff_micros;
+        if (adjusted_period < 1) {
+            adjusted_period = 1;  // Clamp to minimum to avoid invalid timer periods
+        }
+
+        return startOnce(static_cast<uint64_t>(adjusted_period));
     }
     esp_err_t stop();
     esp_err_t deleteTimer();
@@ -116,7 +135,7 @@ struct Task {
     std::optional<uint64_t> getPeriod();
 
   private:
-    std::unique_ptr<time_t> expected_time_ = nullptr;
+    std::unique_ptr<uint64_t> expected_time_ = nullptr;
     uint64_t sync_period_ = 0;
     inline static constexpr TagType TAG = "TASK";
 };
