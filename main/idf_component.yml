@@ -17,3 +17,4 @@ dependencies:
   joltwallet/littlefs: ^1.20.2
 
   leeebo/esp-inih: ^0.0.2
+  espressif/cjson: ^1.7.19

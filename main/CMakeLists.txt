@@ -1,7 +1,7 @@
 set(MY_ESP_COMPONENTS
     esp_http_server
     driver
-    json
+    cjson
     esp_netif
     esp_event
     esp_wifi
