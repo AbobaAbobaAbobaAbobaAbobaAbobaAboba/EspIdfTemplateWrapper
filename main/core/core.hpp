@@ -3,6 +3,7 @@
 #include "../common/global.hpp"
 #include "../config_wrapper/config_wrapper.hpp"
 #include "../http_wrapper/http_server_wrapper.hpp"
+#include "../rotation_controller/rotation_controller.hpp"
 #include "../scheduler/scheduler.hpp"
 #include "../sntp_wrapper/sntp_wrapper.hpp"
 #include "../wifi_wrapper/wifi_handler.hpp"
@@ -20,17 +21,7 @@ class Core {
 
   private:
     void init();
-    void blinkCrap() {
-        global::led_pin->write(true);
-        vTaskDelay(pdMS_TO_TICKS(100));
-        global::led_pin->write(false);
-        vTaskDelay(pdMS_TO_TICKS(100));
-
-        global::led_pin->write(true);
-        vTaskDelay(pdMS_TO_TICKS(100));
-        global::led_pin->write(false);
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
+    void blinkCrap();
     static void applyPacket(
       std::shared_ptr<WSPacket::PacketBase> packet,
       [[maybe_unused]] int sockfd);
@@ -42,41 +33,11 @@ class Core {
 
     void applyTaskStart(
       const WSPacket::PacketTaskStart* packet,
-      [[maybe_unused]] int sockfd) {
-        auto exec_callback = []() {
-            time_t now = time(nullptr);
-            std::cout << "Fire time: " << ctime(&now) << std::endl;
-        };
-        auto error_callback = [](esp_err_t error) {
-            std::cout << "received error: " << error << std::endl;
-        };
-
-        Scheduler::Scheduler::schedule_at(
-          packet->hour,
-          packet->minute,
-          packet->second,
-          false,
-          exec_callback,
-          error_callback);
-        std::unique_ptr<WSPacket::PacketRespBase> resp_packet =
-          std::make_unique<WSPacket::PacketRespTaskStart>(WSPacket::RespType::OK);
-        http_server_.sendPacket(resp_packet.get(), sockfd);
-    }
+      [[maybe_unused]] int sockfd);
 
     void applyTaskStop(
       const WSPacket::PacketTaskStop* packet,
-      [[maybe_unused]] int sockfd) {
-        esp_log(
-          kErrorLogConfig,
-          TAG,
-          "ABOBA UNSCHEDULED %d %d",
-          packet->id,
-          Scheduler::Scheduler::unschedule(packet->id));
-
-        std::unique_ptr<WSPacket::PacketRespBase> resp_packet =
-          std::make_unique<WSPacket::PacketRespTaskStart>(WSPacket::RespType::OK);
-        http_server_.sendPacket(resp_packet.get(), sockfd);
-    }
+      [[maybe_unused]] int sockfd);
 
     WifiHandler wifi_handler_;
     HttpServerWrapper http_server_;
@@ -86,5 +47,6 @@ class Core {
     Credentials creds_;
 
     ConfigWrapper wrapper;
+    RotationController rotation_controller_;
 };
 #endif

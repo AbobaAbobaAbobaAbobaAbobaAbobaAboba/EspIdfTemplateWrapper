@@ -26,6 +26,7 @@ idf_component_register(SRCS "main.cpp"
     "gpio_wrappers/mcpwm_wrapper/mcpwm_wrapper.cpp"
     "sntp_wrapper/sntp_wrapper.cpp"
     "scheduler/scheduler.cpp"
+    "rotation_controller/rotation_controller.cpp"
      REQUIRES ${MY_ESP_COMPONENTS}
 INCLUDE_DIRS ".")
 

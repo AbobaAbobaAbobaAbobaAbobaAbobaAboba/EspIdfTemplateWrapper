@@ -8,6 +8,7 @@ Core::Core(const Credentials& _creds) : creds_(_creds), wrapper("/settings.ini")
     init();
 }
 void Core::init() {
+    rotation_controller_.startRotation();
     wifi_handler_.connect(creds_.ssid, creds_.password, 20);
     wifi_handler_.waitForConnected();
 
@@ -18,8 +19,19 @@ void Core::init() {
     wrapper.load();
     wrapper.printContents();
 
-        http_server_.startWebserver();
+    http_server_.startWebserver();
     http_server_.registerCallback(&Core::applyPacket);
+}
+void Core::blinkCrap() {
+    global::led_pin->write(true);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    global::led_pin->write(false);
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    global::led_pin->write(true);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    global::led_pin->write(false);
+    vTaskDelay(pdMS_TO_TICKS(100));
 }
 void Core::applyPacket(
   std::shared_ptr<WSPacket::PacketBase> packet,
@@ -87,4 +99,42 @@ void Core::applyServo(
     std::unique_ptr<WSPacket::PacketRespBase> packet =
       std::make_unique<WSPacket::PacketRespServo>(WSPacket::RespType::OK);
     http_server_.sendPacket(packet.get(), sockfd);
+}
+
+void Core::applyTaskStart(
+  const WSPacket::PacketTaskStart* packet,
+  [[maybe_unused]] int sockfd) {
+    auto exec_callback = []() {
+        time_t now = time(nullptr);
+        std::cout << "Fire time: " << ctime(&now) << std::endl;
+    };
+    auto error_callback = [](esp_err_t error) {
+        std::cout << "received error: " << error << std::endl;
+    };
+
+    Scheduler::Scheduler::schedule_at(
+      packet->hour,
+      packet->minute,
+      packet->second,
+      false,
+      exec_callback,
+      error_callback);
+    std::unique_ptr<WSPacket::PacketRespBase> resp_packet =
+      std::make_unique<WSPacket::PacketRespTaskStart>(WSPacket::RespType::OK);
+    http_server_.sendPacket(resp_packet.get(), sockfd);
+}
+
+void Core::applyTaskStop(
+  const WSPacket::PacketTaskStop* packet,
+  [[maybe_unused]] int sockfd) {
+    esp_log(
+      kErrorLogConfig,
+      TAG,
+      "ABOBA UNSCHEDULED %d %d",
+      packet->id,
+      Scheduler::Scheduler::unschedule(packet->id));
+
+    std::unique_ptr<WSPacket::PacketRespBase> resp_packet =
+      std::make_unique<WSPacket::PacketRespTaskStart>(WSPacket::RespType::OK);
+    http_server_.sendPacket(resp_packet.get(), sockfd);
 }
