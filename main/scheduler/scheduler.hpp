@@ -106,8 +106,9 @@ struct Task {
           diff_micros,
           abs_diff_micros);
 
-        if (abs_diff_micros < 1'000'000) {  // Example threshold: 1ms; adjust as needed
-                                            // (original was ~1s)
+        if (abs_diff_micros < 1'000) {  // Example threshold: 1ms; adjust as needed
+            // (original was ~1s)
+            esp_log(kInfoLogConfig, TAG, "Returning unchanged");
             return startOnce(sync_period_);
         }
 
@@ -116,6 +117,7 @@ struct Task {
             adjusted_period = 1;  // Clamp to minimum to avoid invalid timer periods
         }
 
+        esp_log(kInfoLogConfig, TAG, "Adjusting to %lld", adjusted_period);
         return startOnce(static_cast<uint64_t>(adjusted_period));
     }
     esp_err_t stop();

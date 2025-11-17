@@ -7,6 +7,10 @@ namespace global {
 
 inline std::shared_ptr<GPIO::GpioBasicWrapper> led_pin;
 
+constexpr std::uint64_t millisToMicros(std::uint64_t milliseconds)
+{
+    return milliseconds * 1000ULL;
+}
 inline void initGlobalPins() {
     global::led_pin = GPIO::GpioBasicWrapper::createPin(
       GPIO_NUM_2,

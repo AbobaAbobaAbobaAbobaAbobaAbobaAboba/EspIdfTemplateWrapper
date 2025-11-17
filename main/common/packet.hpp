@@ -1,6 +1,7 @@
 #ifndef PACKET_HPP
 #define PACKET_HPP
 #include "../json_wrapper/json_wrapper.hpp"
+#include "../rotation_controller/rotation_controller.hpp"
 #include <esp_http_server.h>
 #include <limits>
 #include <memory>
@@ -12,6 +13,8 @@ enum class PacketType : int {
     SERVO = 1,
     TASK_START = 2,
     TASK_STOP = 3,
+    ROTATION_START,
+    ROTATION_STOP,
     COUNT
 };
 enum class RespType : int {
@@ -65,8 +68,29 @@ struct PacketTaskStop : public PacketBase {
     int id;
 };
 
+struct PacketRotationStart : public PacketBase {
+    PacketRotationStart(
+      int _interval_microseconds,
+      uint8_t _steps,
+      RotationController::Direction _direction,
+      RotationController::StepMode _step_mode)
+        : PacketBase{PacketType::ROTATION_START},
+          interval_microseconds{_interval_microseconds},
+          steps{_steps},
+          direction{_direction},
+          step_mode(_step_mode) {}
+    int interval_microseconds;
+    uint8_t steps;
+    RotationController::Direction direction;
+    RotationController::StepMode step_mode;
+};
+
+struct PacketRotationStop : public PacketBase {
+    PacketRotationStop() : PacketBase{PacketType::ROTATION_STOP} {}
+};
+
 static_assert(
-  4 == static_cast<int>(PacketType::COUNT),
+  6 == static_cast<int>(PacketType::COUNT),
   "PacketType::COUNT mismatch. Check if enough Packet structs exist");
 
 // ========
@@ -102,7 +126,8 @@ struct PacketRespServo : public PacketRespBase {
 };
 
 struct PacketRespTaskStart : public PacketRespBase {
-    PacketRespTaskStart(RespType _resp) : PacketRespBase{PacketType::LED, _resp} {}
+    PacketRespTaskStart(RespType _resp)
+        : PacketRespBase{PacketType::TASK_START, _resp} {}
 
     virtual JsonWrapper generateJson() const override {
         return PacketRespBase::generateJson();
@@ -110,15 +135,33 @@ struct PacketRespTaskStart : public PacketRespBase {
 };
 
 struct PacketRespTaskStop : public PacketRespBase {
-    PacketRespTaskStop(RespType _resp) : PacketRespBase{PacketType::LED, _resp} {}
+    PacketRespTaskStop(RespType _resp)
+        : PacketRespBase{PacketType::TASK_START, _resp} {}
 
     virtual JsonWrapper generateJson() const override {
         return PacketRespBase::generateJson();
     }
 };
 
+struct PacketRespRotationStart : public PacketRespBase {
+    PacketRespRotationStart(RespType _resp)
+        : PacketRespBase{PacketType::TASK_START, _resp} {}
+
+    virtual JsonWrapper generateJson() const override {
+        return PacketRespBase::generateJson();
+    }
+};
+
+struct PacketRespRotationStop : public PacketRespBase {
+    PacketRespRotationStop(RespType _resp)
+        : PacketRespBase{PacketType::TASK_STOP, _resp} {}
+
+    virtual JsonWrapper generateJson() const override {
+        return PacketRespBase::generateJson();
+    }
+};
 static_assert(
-  4 == static_cast<int>(PacketType::COUNT),
+  6 == static_cast<int>(PacketType::COUNT),
   "PacketType::COUNT mismatch. Check if enough RESP structs exist");
 
 };  // namespace WSPacket

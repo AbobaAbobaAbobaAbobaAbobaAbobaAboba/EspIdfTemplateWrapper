@@ -8,7 +8,16 @@ Core::Core(const Credentials& _creds) : creds_(_creds), wrapper("/settings.ini")
     init();
 }
 void Core::init() {
-    rotation_controller_.startRotation();
+    // auto exec_callback = [&]() {
+    //     std::cout << "rotated once!" << std::endl;
+    //     rotation_controller_.rotateOnce();
+    // };
+    // auto error_callback = [&](esp_err_t) {
+    //   std::cout << "rotate once callback error!" << std::endl;
+    // };
+    // Scheduler::Scheduler::schedule(global::millisToMicros(1000), false,
+    // exec_callback, error_callback);
+
     wifi_handler_.connect(creds_.ssid, creds_.password, 20);
     wifi_handler_.waitForConnected();
 
@@ -36,6 +45,9 @@ void Core::blinkCrap() {
 void Core::applyPacket(
   std::shared_ptr<WSPacket::PacketBase> packet,
   [[maybe_unused]] int sockfd) {
+    static_assert(
+      6 == static_cast<int>(WSPacket::PacketType::COUNT),
+      "PacketType::COUNT mismatch. Check if enough Packet structs exist");
     switch (static_cast<WSPacket::PacketType>(packet->packet_type)) {
         case WSPacket::PacketType::LED: {
             WSPacket::PacketLED* led_packet =
@@ -59,6 +71,18 @@ void Core::applyPacket(
             WSPacket::PacketTaskStop* temp_packet =
               static_cast<WSPacket::PacketTaskStop*>(packet.get());
             instance_->applyTaskStop(temp_packet, sockfd);
+            break;
+        }
+        case WSPacket::PacketType::ROTATION_START: {
+            WSPacket::PacketRotationStart* temp_packet =
+              static_cast<WSPacket::PacketRotationStart*>(packet.get());
+            instance_->applyRotationStart(temp_packet, sockfd);
+            break;
+        }
+        case WSPacket::PacketType::ROTATION_STOP: {
+            WSPacket::PacketRotationStop* temp_packet =
+              static_cast<WSPacket::PacketRotationStop*>(packet.get());
+            instance_->applyRotationStop(temp_packet, sockfd);
             break;
         }
         default:

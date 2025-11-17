@@ -3,8 +3,8 @@
 #include "../common/common.hpp"
 #include "../gpio_wrappers/gpio_basic_wrapper/gpio_basic_wrapper.hpp"
 #include "../gpio_wrappers/mcpwm_wrapper/mcpwm_wrapper.hpp"
-static constexpr uint32_t kTicksTimer = 64000;
-static constexpr uint32_t kTicksWrite = 32000;
+static constexpr uint32_t kTicksTimer = 32000;
+static constexpr uint32_t kTicksWrite = 16000;
 static constexpr uint32_t kResolution = 1'000'000;
 class RotationController {
   public:
@@ -39,13 +39,29 @@ class RotationController {
         }
     };
     void startRotation() {
-        motor_pin_->write(kTicksWrite);
         enable_pin_->write(1);
+        // motor_pin_->write(kTicksWrite);
     }
     void stopRotation() {
-        motor_pin_->stop(MCPWM_TIMER_START_STOP_EMPTY);
         enable_pin_->write(0);
+        // motor_pin_->stop(MCPWM_TIMER_START_STOP_EMPTY);
     }
+
+    void rotate(int steps) {
+        if (steps <= 0) {
+            throw std::runtime_error("Failed to rotate due to invalid steps value");
+        }
+        enable_pin_->write(0);
+        vTaskDelay(pdMS_TO_TICKS(10));
+        for (int i = 0; i < steps; ++i) {
+            motor_pin_->write(1);
+            esp_rom_delay_us(1);
+            motor_pin_->write(0);
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+        enable_pin_->write(1);
+    }
+
     void setStepMode(StepMode mode) {
         switch (mode) {
             case StepMode::STEP_FULL:
@@ -86,8 +102,14 @@ class RotationController {
 
   private:
     void init() {
-        timer1_ = GPIO::McpwmTimer::createTimer(0, kTicksTimer, kResolution);
-        motor_pin_ = GPIO::McpwmWrapper::createPin(GPIO_NUM_25, timer1_);
+        // timer1_ = GPIO::McpwmTimer::createTimer(0, kTicksTimer, kResolution);
+        // motor_pin_ = GPIO::McpwmWrapper::createPin(GPIO_NUM_25, timer1_);
+
+        motor_pin_ = GPIO::GpioBasicWrapper::createPin(
+          GPIO_NUM_25,
+          GPIO_MODE_OUTPUT,
+          GPIO::PullMode::PULL_DOWN);
+        motor_pin_->write(0);
 
         dir_pin_ = GPIO::GpioBasicWrapper::createPin(
           GPIO_NUM_32,
@@ -98,8 +120,8 @@ class RotationController {
         enable_pin_ = GPIO::GpioBasicWrapper::createPin(
           GPIO_NUM_33,
           GPIO_MODE_OUTPUT,
-          GPIO::PullMode::PULL_DOWN);
-        enable_pin_->write(0);
+          GPIO::PullMode::PULL_UP);
+        enable_pin_->write(1);
 
         m0_pin_ = GPIO::GpioBasicWrapper::createPin(
           GPIO_NUM_5,
@@ -118,11 +140,12 @@ class RotationController {
           GPIO_MODE_OUTPUT,
           GPIO::PullMode::PULL_DOWN);
         m2_pin_->write(0);
-        setStepMode(StepMode::STEP_1_32);
+        setStepMode(StepMode::STEP_FULL);
     }
 
-    std::shared_ptr<GPIO::McpwmTimer> timer1_;
-    std::shared_ptr<GPIO::McpwmWrapper> motor_pin_;
+    // std::shared_ptr<GPIO::McpwmTimer> timer1_;
+    // std::shared_ptr<GPIO::McpwmWrapper> motor_pin_;
+    std::shared_ptr<GPIO::GpioBasicWrapper> motor_pin_;
     std::shared_ptr<GPIO::GpioBasicWrapper> dir_pin_;
     std::shared_ptr<GPIO::GpioBasicWrapper> enable_pin_;
     std::shared_ptr<GPIO::GpioBasicWrapper> m0_pin_;

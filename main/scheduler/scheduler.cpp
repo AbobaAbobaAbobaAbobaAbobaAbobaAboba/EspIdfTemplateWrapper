@@ -145,14 +145,24 @@ std::tuple<Status, int> Scheduler::innerSchedule(
 #endif
         }
     }
-    task_map_.emplace(id_counter_, std::move(task));
+    auto temp_iterator = task_map_.emplace(id_counter_, std::move(task));
+    if (!temp_iterator.second) {
+        throw std::runtime_error(
+          "Attempting to emplace a task but the bucket was already there");
+    }
     const int res = id_counter_;
     ++id_counter_;
 
     if (start_err != ESP_OK) {
+        esp_log(
+          kInfoLogConfig,
+          TAG,
+          "Failed to schedule %d %s ",
+          microseconds,
+          esp_err_to_name(start_err));
         return {Status::ERROR, res};
     }
-    return {task.status_, res};
+    return {temp_iterator.first->second.status_, res};
 }
 
 bool Scheduler::Scheduler::unschedule(int id) {
