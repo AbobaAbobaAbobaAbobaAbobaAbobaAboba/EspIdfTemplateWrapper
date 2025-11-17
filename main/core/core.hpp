@@ -44,19 +44,20 @@ class Core {
       const WSPacket::PacketRotationStart* rs_packet,
       [[maybe_unused]] int sockfd) {
         if (rotation_task_id_ != std::nullopt) {
-            Scheduler::Scheduler::unschedule(rotation_task_id_.value());
+            if (!Scheduler::Scheduler::unschedule(rotation_task_id_.value())) {
+                esp_log(kErrorLogConfig, TAG, "Failed to unschedule!");
+            }
+            rotation_task_id_.reset();
         }
+
         rotation_controller_.setDir(rs_packet->direction);
         rotation_controller_.setStepMode(rs_packet->step_mode);
 
         auto [status, id] = Scheduler::Scheduler::schedule(
           rs_packet->interval_microseconds,
           false,
-          [this, steps = rs_packet->steps]() {
-              rotation_controller_.rotate(steps);
-              rotation_task_id_.reset();
-          });
-
+          [this, steps = rs_packet->steps]() { rotation_controller_.rotate(steps); });
+        rotation_task_id_ = id;
         if (status != Scheduler::Status::PENDING) {
             esp_log(kErrorLogConfig, "CORE", "Failed to schedule rotation %d ", status);
             Scheduler::Scheduler::unschedule(id);

@@ -57,7 +57,7 @@ class RotationController {
             motor_pin_->write(1);
             esp_rom_delay_us(1);
             motor_pin_->write(0);
-            vTaskDelay(pdMS_TO_TICKS(10));
+            vTaskDelay(pdMS_TO_TICKS(30));
         }
         enable_pin_->write(1);
     }

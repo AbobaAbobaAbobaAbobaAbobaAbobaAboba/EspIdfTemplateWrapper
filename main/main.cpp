@@ -33,8 +33,8 @@ void true_main() {
 
         initBlink();
 
-        Core core({"kgsn2g", "kbtaPR45ka$"});
-        // Core core({"S98Pro", "AbobaAboba"});
+        //Core core({"kgsn2g", "kbtaPR45ka$"});
+         Core core({"AbobaNet", "Aboba_425784_Net"});
         time_t now = time(nullptr);
         std::cout << "CORE START TIME: " << ctime(&now) << std::endl;
         while (true) {
