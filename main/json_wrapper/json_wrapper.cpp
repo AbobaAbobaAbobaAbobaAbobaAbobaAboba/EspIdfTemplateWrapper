@@ -3,7 +3,6 @@ JsonWrapper::JsonWrapper(const std::string& str) {
     json_ = cJSON_Parse(str.c_str());
 
     ++counter;
-    // esp_log(kErrorLogConfig, "ABOBA", "JSON count begin %d", counter);
 
     if (json_ == nullptr) {
         throw std::runtime_error("Failed to parse JSON string");
@@ -13,7 +12,6 @@ JsonWrapper::JsonWrapper(const char* str) {
     json_ = cJSON_Parse(str);
 
     ++counter;
-    // esp_log(kErrorLogConfig, "ABOBA", "JSON count begin %d", counter);
 
     if (json_ == nullptr) {
         throw std::runtime_error("Failed to parse JSON string");
@@ -23,7 +21,6 @@ JsonWrapper::JsonWrapper(const uint8_t* str) {
     json_ = cJSON_Parse(reinterpret_cast<const char*>(str));
 
     ++counter;
-    // esp_log(kErrorLogConfig, "ABOBA", "JSON count begin %d", counter);
     if (json_ == nullptr) {
         throw std::runtime_error("Failed to parse JSON string");
     }
@@ -31,7 +28,6 @@ JsonWrapper::JsonWrapper(const uint8_t* str) {
 // Constructor: Initializes a cJSON object (default is an object)
 JsonWrapper::JsonWrapper() {
     ++counter;
-    // esp_log(kErrorLogConfig, "ABOBA", "JSON count begin %d", counter);
     json_ = cJSON_CreateObject();
 }
 
@@ -39,7 +35,6 @@ JsonWrapper::JsonWrapper() {
 JsonWrapper::~JsonWrapper() {
     if (json_) {
         --counter;
-        // esp_log(kErrorLogConfig, "ABOBA", "JSON count end %d", counter);
         cJSON_Delete(json_);
     }
 }

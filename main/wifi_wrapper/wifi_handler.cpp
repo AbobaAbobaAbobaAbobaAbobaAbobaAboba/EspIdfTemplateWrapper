@@ -77,7 +77,7 @@ void WifiHandler::event_handler(
       event_base,
       event_id);
     // handle logic on how to reconnect for N attempts
-    // aboba
+
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         handler->handleWifiStart();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {

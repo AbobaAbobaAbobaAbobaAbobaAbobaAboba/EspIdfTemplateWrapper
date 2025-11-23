@@ -25,27 +25,9 @@ class RotationController {
     RotationController(RotationController&& other) = delete;
     RotationController& operator=(const RotationController& other) = delete;
     RotationController& operator=(RotationController&& other) = delete;
-    void setDir(Direction dir) {
-        switch (dir) {
-            case Direction::CLOCKWISE:
-                dir_pin_->write(1);
-                break;
-            case Direction::COUNTER_CLOCKWISE:
-                dir_pin_->write(0);
-                break;
-            default: {
-                throw std::runtime_error("Unknown direction!");
-            }
-        }
-    };
-    void startRotation() {
-        enable_pin_->write(1);
-        // motor_pin_->write(kTicksWrite);
-    }
-    void stopRotation() {
-        enable_pin_->write(0);
-        // motor_pin_->stop(MCPWM_TIMER_START_STOP_EMPTY);
-    }
+    void setDir(Direction dir);
+    void startRotation();
+    void stopRotation();
 
     void rotate(int steps) {
         if (steps <= 0) {
@@ -57,54 +39,15 @@ class RotationController {
             motor_pin_->write(1);
             esp_rom_delay_us(1);
             motor_pin_->write(0);
-            vTaskDelay(pdMS_TO_TICKS(30));
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
         enable_pin_->write(1);
     }
 
-    void setStepMode(StepMode mode) {
-        switch (mode) {
-            case StepMode::STEP_FULL:
-                m0_pin_->write(0);
-                m1_pin_->write(0);
-                m2_pin_->write(0);
-                break;
-            case StepMode::STEP_1_2:
-                m0_pin_->write(1);
-                m1_pin_->write(0);
-                m2_pin_->write(0);
-                break;
-            case StepMode::STEP_1_4:
-                m0_pin_->write(0);
-                m1_pin_->write(1);
-                m2_pin_->write(0);
-                break;
-            case StepMode::STEP_1_8:
-                m0_pin_->write(1);
-                m1_pin_->write(1);
-                m2_pin_->write(0);
-                break;
-            case StepMode::STEP_1_16:
-                m0_pin_->write(0);
-                m1_pin_->write(0);
-                m2_pin_->write(1);
-                break;
-            case StepMode::STEP_1_32:
-                m0_pin_->write(1);
-                m1_pin_->write(1);
-                m2_pin_->write(1);
-                break;
-            default: {
-                throw std::runtime_error("Unknown step mode!");
-            }
-        }
-    }
+    void setStepMode(StepMode mode);
 
   private:
     void init() {
-        // timer1_ = GPIO::McpwmTimer::createTimer(0, kTicksTimer, kResolution);
-        // motor_pin_ = GPIO::McpwmWrapper::createPin(GPIO_NUM_25, timer1_);
-
         motor_pin_ = GPIO::GpioBasicWrapper::createPin(
           GPIO_NUM_25,
           GPIO_MODE_OUTPUT,

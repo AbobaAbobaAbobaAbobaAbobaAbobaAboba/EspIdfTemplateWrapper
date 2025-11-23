@@ -17,8 +17,8 @@
 #include <tuple>
 #include <utility>
 namespace Scheduler {
-constexpr uint64_t day_in_microseconds = 1 * 1 * 60 * 1 * 1000000ULL;
-constexpr uint64_t day_in_seconds = /*24 * 60 * 60*/ 30 * 60;  // 05hrs //86400;
+constexpr uint64_t day_in_microseconds = 24 * 60 * 60 * 1000000ULL;
+constexpr uint64_t day_in_seconds = 24 * 60 * 60;
 
 enum class Status : uint8_t {
     PENDING = 0,
@@ -33,11 +33,7 @@ enum class TaskType : uint8_t {
     SYNCED,
     INVALID
 };
-// aboba look here
-//я создал таймер на 18:03
-//  по идее он должен работать раз в час, т.е 19 03. 20 03, и тж
-//  и создал таймер на следующие сутки, на 18:00, т.е он должен
-//  выстрелить 1 раз в 18:30 и потом каждые 60 минут, т.е 18:30, 19:30 20:30
+
 struct Task {
     /// @brief
     /// if ERROR is fired
@@ -188,7 +184,7 @@ class Scheduler {
     inline static constexpr int kQueueSize = 128;
     inline static constexpr TagType TAG = "SCHEDULER";
 
-    inline static std::mutex mutex_;
+    inline static std::recursive_mutex mutex_;
     inline static std::atomic<bool> is_mutex_locked_ = false;
     inline static std::atomic<int> id_counter_ = 0;
     inline static std::unordered_map<int, Task> task_map_ = {};

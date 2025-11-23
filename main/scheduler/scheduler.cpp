@@ -56,7 +56,8 @@ std::tuple<Status, int> Scheduler::schedule_at(
         esp_log(
           kErrorLogConfig,
           TAG,
-          "Current time exceeds the specified one %d:%d:%d",
+          "Current time exceeds the specified one %d:%d:%d. Executing callback and "
+          "rescheduling for tommorow",
           target.tm_hour,
           target.tm_min,
           target.tm_sec);
@@ -89,11 +90,19 @@ std::tuple<Status, int> Scheduler::innerSchedule(
   const std::function<void()>& execute_callback,
   const std::function<void(esp_err_t)>& error_callback,
   const std::string& name = "") {
-    std::lock_guard<std::mutex> guard(mutex_);
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
+
+    esp_log(kInfoLogConfig, "ABOBA", "Inner schedule invoked!");
+
     auto it = task_map_.find(id_counter_);
 
     // Note that second AND will be executed only if the first one succeeds
     while (it != task_map_.end()) {
+        esp_log(
+          kInfoLogConfig,
+          TAG,
+          "Found an existing id, looking for an availbable one %d ",
+          id_counter_.load());
         ++id_counter_;
         it = task_map_.find(id_counter_);
     }
@@ -162,11 +171,12 @@ std::tuple<Status, int> Scheduler::innerSchedule(
           esp_err_to_name(start_err));
         return {Status::ERROR, res};
     }
+    esp_log(kInfoLogConfig, "ABOBA", "Inner schedule finished working successfully!");
     return {temp_iterator.first->second.status_, res};
 }
 
 bool Scheduler::Scheduler::unschedule(int id) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     esp_log(kErrorLogConfig, TAG, "Attempting to unschedule %d", id);
     auto it = task_map_.find(id);
 
@@ -180,8 +190,6 @@ bool Scheduler::Scheduler::unschedule(int id) {
 void Scheduler::handler(void* arg) {
     int id = *static_cast<int*>(arg);
 
-    esp_log(kInfoLogConfig, TAG, "Timer fired! Sending ID to worker: %d", id);
-
     // Send ID to worker queue (from ISR or timer callback is safe)
     BaseType_t higher_priority_task_woken = pdFALSE;
     xQueueSendFromISR(id_queue_, &id, &higher_priority_task_woken);
@@ -190,7 +198,7 @@ void Scheduler::handler(void* arg) {
 bool Scheduler::innerExecute(int id) {
     esp_log(kInfoLogConfig, TAG, "Worker has started working on %d!", id);
 
-    std::lock_guard<std::mutex> guard(mutex_);
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
 
     auto it = task_map_.find(id);
     if (it == task_map_.end()) {
@@ -247,7 +255,6 @@ bool Scheduler::innerExecute(int id) {
             break;
         }
     }
-
     return true;
 }
 
