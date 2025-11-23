@@ -32,7 +32,6 @@ std::shared_ptr<PacketBase> parseServo(const JsonWrapper& json) {
 }
 
 std::shared_ptr<PacketBase> parseTaskStart(const JsonWrapper& json) {
-    esp_log(kInfoLogConfig, "ABOBA", "Task start");
     auto hour = json.getNumber("hour");
     auto minute = json.getNumber("minute");
     auto second = json.getNumber("second");

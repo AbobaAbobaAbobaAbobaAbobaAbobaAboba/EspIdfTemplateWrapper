@@ -43,7 +43,6 @@ JsonWrapper::~JsonWrapper() {
 JsonWrapper::JsonWrapper(const JsonWrapper& other) {
     if (other.json_) {
         ++counter;
-        // esp_log(kErrorLogConfig, "ABOBA", "JSON count begin %d", counter);
         json_ = cJSON_Duplicate(other.json_, cJSON_True);
     }
 }
@@ -53,7 +52,7 @@ JsonWrapper& JsonWrapper::operator=(JsonWrapper&& other) noexcept {
     if (this != &other) {
         if (json_) {
             --counter;
-            // esp_log(kErrorLogConfig, "ABOBA", "JSON count end %d", counter);
+
             cJSON_Delete(json_);
         }
         json_ = other.json_;

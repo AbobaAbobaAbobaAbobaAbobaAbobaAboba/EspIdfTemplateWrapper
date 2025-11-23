@@ -401,7 +401,7 @@ int HttpServerWrapper::getSocketCount() {
 
 esp_err_t HttpServerWrapper::handleSocketCount() {
     int socket_count = getSocketCount();
-    esp_log(kErrorLogConfig, "ABOBA", "current socket count: %d", socket_count);
+    esp_log(kErrorLogConfig, TAG, "current socket count: %d", socket_count);
 
     if (socket_count == -1) {
         return ESP_FAIL;

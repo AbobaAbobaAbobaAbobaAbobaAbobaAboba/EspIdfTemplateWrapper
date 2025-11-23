@@ -92,8 +92,6 @@ std::tuple<Status, int> Scheduler::innerSchedule(
   const std::string& name = "") {
     std::lock_guard<std::recursive_mutex> guard(mutex_);
 
-    esp_log(kInfoLogConfig, "ABOBA", "Inner schedule invoked!");
-
     auto it = task_map_.find(id_counter_);
 
     // Note that second AND will be executed only if the first one succeeds
@@ -171,7 +169,6 @@ std::tuple<Status, int> Scheduler::innerSchedule(
           esp_err_to_name(start_err));
         return {Status::ERROR, res};
     }
-    esp_log(kInfoLogConfig, "ABOBA", "Inner schedule finished working successfully!");
     return {temp_iterator.first->second.status_, res};
 }
 
