@@ -1,23 +1,119 @@
 #include "core.hpp"
 #include "../scheduler/scheduler.hpp"
-Core::Core(const Credentials& _creds) : creds_(_creds), wrapper("/settings.ini") {
+Core::Core(const Credentials& _creds)
+    : creds_(_creds),
+      config_wrapper_("/settings.ini") {
     if (instance_ != nullptr) {
         throw std::runtime_error("Core instance already exists!");
     }
     instance_ = this;
     init();
+    applyRotationFromConfigAboba();
+}
+
+bool isTimeInBracket(
+  int startHour,
+  int startMin,
+  int startSec,
+  int endHour,
+  int endMin,
+  int endSec) {
+    time_t now = time(nullptr);
+    tm now_time = *localtime(&now);
+
+    // Convert current time to seconds since midnight
+    int nowSeconds = now_time.tm_hour * 3600 + now_time.tm_min * 60 + now_time.tm_sec;
+    int startSeconds = startHour * 3600 + startMin * 60 + startSec;
+    int endSeconds = endHour * 3600 + endMin * 60 + endSec;
+
+    if (startSeconds <= endSeconds) {
+        // Normal interval (doesn't cross midnight)
+        return nowSeconds >= startSeconds && nowSeconds < endSeconds;
+    } else {
+        // Interval crosses midnight
+        return nowSeconds >= startSeconds || nowSeconds < endSeconds;
+    }
+}
+
+void Core::applyRotationFromConfigAboba() {
+    // rotation
+    auto rotation_on_time =
+      config_wrapper_.get<std::string>("rotation", "rotation_on_time");
+    auto rotation_off_time =
+      config_wrapper_.get<std::string>("rotation", "rotation_off_time");
+
+    int dir = config_wrapper_.get<int>("rotation", "dir");
+    int step_mode = config_wrapper_.get<int>("rotation", "step_mode");
+    int steps = config_wrapper_.get<int>("rotation", "steps");
+    int rotation_interval = config_wrapper_.get<int>("rotation", "rotation_interval");
+
+    //
+    // light
+
+    auto light_on_time = config_wrapper_.get<std::string>("light", "light_on_time");
+    auto light_off_time = config_wrapper_.get<std::string>("light", "light_off_time");
+
+    {
+        auto [isOk_on, hour_on, minute_on, second_on] = parseTime(rotation_on_time);
+        auto [isOk_off, hour_off, minute_off, second_off] =
+          parseTime(rotation_off_time);
+
+        if (!isOk_on || !isOk_off) {
+            throw std::runtime_error("Failed to parse time!");
+        }
+
+        auto callback_on = [steps, rotation_interval, dir, step_mode, this]() {
+            scheduleRotation(
+              steps,
+              rotation_interval,
+              static_cast<RotationController::Direction>(dir),
+              static_cast<RotationController::StepMode>(step_mode));
+        };
+        auto callback_off = [this]() { unscheduleRotation(); };
+
+        auto [status1, id1] = Scheduler::Scheduler::schedule_at(
+          hour_on,
+          minute_on,
+          second_on,
+          false,
+          callback_on,
+          nullptr);
+
+        auto [status2, id2] = Scheduler::Scheduler::schedule_at(
+          hour_off,
+          minute_off,
+          second_off,
+          false,
+          callback_off,
+          nullptr);
+
+        esp_log(kInfoLogConfig, "ABOBA", "Id of rotation on %d!", id1);
+        esp_log(
+          kInfoLogConfig,
+          "ABOBA",
+          "Status of rotation on %d!",
+          static_cast<int>(status1));
+
+        esp_log(kInfoLogConfig, "ABOBA", "Id of rotation off %d!", id2);
+        esp_log(
+          kInfoLogConfig,
+          "ABOBA",
+          "Status of rotation off %d!",
+          static_cast<int>(status2));
+
+        bool isOn = isTimeInBracket(
+          hour_on,
+          minute_on,
+          second_on,
+          hour_off,
+          minute_off,
+          second_off);
+        if (isOn) {
+            callback_on();
+        }
+    }
 }
 void Core::init() {
-    // auto exec_callback = [&]() {
-    //     std::cout << "rotated once!" << std::endl;
-    //     rotation_controller_.rotateOnce();
-    // };
-    // auto error_callback = [&](esp_err_t) {
-    //   std::cout << "rotate once callback error!" << std::endl;
-    // };
-    // Scheduler::Scheduler::schedule(global::millisToMicros(1000), false,
-    // exec_callback, error_callback);
-
     wifi_handler_.connect(creds_.ssid, creds_.password, 20);
     wifi_handler_.waitForConnected();
 
@@ -25,8 +121,8 @@ void Core::init() {
         SntpWrapper::start();
     }
 
-    wrapper.load();
-    wrapper.printContents();
+    config_wrapper_.load();
+    config_wrapper_.printContents();
 
     http_server_.startWebserver();
     http_server_.registerCallback(&Core::applyPacket);
@@ -128,10 +224,7 @@ void Core::applyServo(
 void Core::applyTaskStart(
   const WSPacket::PacketTaskStart* packet,
   [[maybe_unused]] int sockfd) {
-    auto exec_callback = []() {
-        time_t now = time(nullptr);
-        std::cout << "Fire time: " << ctime(&now) << std::endl;
-    };
+    auto exec_callback = []() { time_t now = time(nullptr); };
     auto error_callback = [](esp_err_t error) {
         std::cout << "received error: " << error << std::endl;
     };
