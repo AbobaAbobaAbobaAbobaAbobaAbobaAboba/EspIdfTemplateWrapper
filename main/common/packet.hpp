@@ -6,11 +6,12 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <string>
 namespace WSPacket {
 
 enum class PacketType : int {
     LED = 0,
-
+    CREDENTIALS,
     COUNT
 };
 enum class RespType : int {
@@ -43,10 +44,17 @@ struct PacketLED : public PacketBase {
     PacketLED(bool _state) : PacketBase{PacketType::LED}, state{_state} {}
     bool state;
 };
-
+struct PacketCredentials : public PacketBase {
+    PacketCredentials(std::string _ssid, std::string _password)
+        : PacketBase{PacketType::CREDENTIALS},
+          ssid(_ssid),
+          password(_password) {}
+    std::string ssid;
+    std::string password;
+};
 
 static_assert(
-  1 == static_cast<int>(PacketType::COUNT),
+  2 == static_cast<int>(PacketType::COUNT),
   "PacketType::COUNT mismatch. Check if enough Packet structs exist");
 
 // ========
@@ -73,9 +81,17 @@ struct PacketRespLED : public PacketRespBase {
     }
 };
 
+struct PacketRespCredentials : public PacketRespBase {
+    PacketRespCredentials(RespType _resp)
+        : PacketRespBase{PacketType::CREDENTIALS, _resp} {}
+
+    virtual JsonWrapper generateJson() const override {
+        return PacketRespBase::generateJson();
+    }
+};
 
 static_assert(
-  1 == static_cast<int>(PacketType::COUNT),
+  2 == static_cast<int>(PacketType::COUNT),
   "PacketType::COUNT mismatch. Check if enough RESP structs exist");
 
 };  // namespace WSPacket

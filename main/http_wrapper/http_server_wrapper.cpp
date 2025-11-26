@@ -396,6 +396,7 @@ int HttpServerWrapper::getSocketCount() {
     if (ret != ESP_OK) {
         return -1;
     }
+
     return num_active;
 }
 

@@ -85,6 +85,15 @@ constexpr esp_log_config_t kErrorLogConfig = {
     .dis_timestamp = 0,
     .binary_mode = 0,
     .reserved = 0}};
+constexpr esp_log_config_t kWarnLogConfig = {
+  .opts = {
+    .log_level = ESP_LOG_WARN,
+    .constrained_env = 0,
+    .require_formatting = 1,
+    .dis_color = 0,
+    .dis_timestamp = 0,
+    .binary_mode = 0,
+    .reserved = 0}};
 void initializeSystem();
 
 inline std::tuple<bool, uint8_t, uint8_t, uint8_t> parseTime(

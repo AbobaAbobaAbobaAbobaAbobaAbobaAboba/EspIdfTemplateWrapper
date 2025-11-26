@@ -17,8 +17,23 @@ std::shared_ptr<PacketBase> parseLED(const JsonWrapper& json) {
     return packet;
 }
 
+std::shared_ptr<PacketBase> parseCredentials(const JsonWrapper& json) {
+    auto ssid = json.getString("ssid");
+    auto password = json.getString("password");
+
+#ifdef ENABLE_SAFENET
+    if (!ssid.has_value() || !password.has_value()) {
+        return {};
+    }
+#endif
+
+    std::shared_ptr<PacketBase> packet =
+      std::make_shared<PacketCredentials>(ssid.value(), password.value());
+    return packet;
+}
+
 static_assert(
-  1 == static_cast<int>(PacketType::COUNT),
+  2 == static_cast<int>(PacketType::COUNT),
   "PacketType::COUNT mismatch. Check if enough Packet structs exist");
 ///====PARSE BASE====
 std::shared_ptr<PacketBase> parse(const JsonWrapper& json) {
@@ -32,11 +47,14 @@ std::shared_ptr<PacketBase> parse(const JsonWrapper& json) {
     auto type = static_cast<PacketType>(packet_type.value());
 
     static_assert(
-      1 == static_cast<int>(PacketType::COUNT),
+      2 == static_cast<int>(PacketType::COUNT),
       "PacketType::COUNT mismatch. Check if enough Packet structs exist");
     switch (type) {
         case PacketType::LED: {
             return parseLED(json);
+        }
+        case PacketType::CREDENTIALS: {
+            return parseCredentials(json);
         }
         default: {
             return {};

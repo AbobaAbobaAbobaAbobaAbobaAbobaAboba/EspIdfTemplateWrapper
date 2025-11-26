@@ -1,12 +1,11 @@
 #include "core.hpp"
 #include "../scheduler/scheduler.hpp"
-Core::Core(const Credentials& _creds)
-    : creds_(_creds),
-      config_wrapper_("/settings.ini") {
+Core::Core() : config_wrapper_("/settings.ini") {
     if (instance_ != nullptr) {
         throw std::runtime_error("Core instance already exists!");
     }
     instance_ = this;
+
     init();
 }
 
@@ -35,19 +34,62 @@ bool isTimeInBracket(
 }
 
 void Core::init() {
-    wifi_station_.connect(creds_.ssid, creds_.password);
-    wifi_station_.setTxPower(78);  // Max power
-    wifi_station_.waitForConnected();
-
-    if (wifi_station_.isConnected()) {
-        SntpWrapper::start();
-    }
-
     config_wrapper_.load();
     config_wrapper_.printContents();
+    wifiRestart();
 
     http_server_.startWebserver();
     http_server_.registerCallback(&Core::applyPacket);
+}
+
+bool Core::wifiRestart() {
+    if (!startStation()) {
+        if (!startAp()) {
+            throw std::runtime_error(
+              "Failed to start WiFi in both Station and AP modes");
+            return false;
+        }
+    }
+    wifi_module_->setTxPower(78);
+    return true;
+}
+
+bool Core::startAp() {
+    wifi_module_.reset();
+    wifi_module_ = std::make_unique<Wifi::ApWrapper>();
+    auto ptr = static_cast<Wifi::ApWrapper*>(wifi_module_.get());
+
+    std::string ssid =
+      config_wrapper_.get(std::string("ap"), std::string("ssid"), std::string(""));
+    std::string password =
+      config_wrapper_.get(std::string("ap"), std::string("password"), std::string(""));
+    if (ssid.empty() || password.empty()) {
+        esp_log(kWarnLogConfig, TAG, "Ap SSID or password is empty");
+        return false;
+    }
+
+    return ptr->startAP(ssid, password);
+}
+
+bool Core::startStation() {
+    wifi_module_.reset();
+    wifi_module_ = std::make_unique<Wifi::StationWrapper>();
+    auto ptr = static_cast<Wifi::StationWrapper*>(wifi_module_.get());
+
+    std::string ssid =
+      config_wrapper_.get(std::string("station"), std::string("ssid"), std::string(""));
+    std::string password = config_wrapper_.get(
+      std::string("station"),
+      std::string("password"),
+      std::string(""));
+    esp_log(kWarnLogConfig, TAG, "Station SSID: %s", ssid.c_str());
+    esp_log(kWarnLogConfig, TAG, "Station password: %s", password.c_str());
+    if (ssid.empty() || password.empty()) {
+        esp_log(kWarnLogConfig, TAG, "Station SSID or password is empty");
+        return false;
+    }
+
+    return ptr->connect(ssid, password, 40);
 }
 
 void Core::blinkCrap() {
@@ -65,13 +107,19 @@ void Core::applyPacket(
   std::shared_ptr<WSPacket::PacketBase> packet,
   [[maybe_unused]] int sockfd) {
     static_assert(
-      1 == static_cast<int>(WSPacket::PacketType::COUNT),
+      2 == static_cast<int>(WSPacket::PacketType::COUNT),
       "PacketType::COUNT mismatch. Check if enough Packet structs exist");
     switch (static_cast<WSPacket::PacketType>(packet->packet_type)) {
         case WSPacket::PacketType::LED: {
             WSPacket::PacketLED* led_packet =
               static_cast<WSPacket::PacketLED*>(packet.get());
             instance_->applyLED(led_packet, sockfd);
+            break;
+        }
+        case WSPacket::PacketType::CREDENTIALS: {
+            WSPacket::PacketCredentials* led_packet =
+              static_cast<WSPacket::PacketCredentials*>(packet.get());
+            instance_->applyCredentials(led_packet, sockfd);
             break;
         }
         default:

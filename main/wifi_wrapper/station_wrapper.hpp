@@ -13,8 +13,11 @@ namespace Wifi {
 
 class StationWrapper : public Base {
   public:
-    StationWrapper() { init(); }
-    ~StationWrapper() {}
+    StationWrapper() : Base(Mode::STATION) { init(); }
+    ~StationWrapper() {
+        esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler);
+        esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, &event_handler);
+    }
 
     // Delete copy and move operations
     StationWrapper(const StationWrapper& other) = delete;

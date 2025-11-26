@@ -13,17 +13,29 @@
 namespace Wifi {
 enum class Mode {
     STATION,
-    AP
+    AP,
+    INVALID
 };
 
 class Base {
   public:
-    Base() {
+    Base(Mode mode) {
 #ifdef ENABLE_SAFENET
         if (instance_) {
             throw std::runtime_error("WiFi module already initialized");
         } else {
             instance_ = this;
+            mode_ = mode;
+            switch (mode_) {
+                case Mode::STATION:
+                    netif_ = esp_netif_create_default_wifi_sta();
+                    break;
+                case Mode::AP:
+                    netif_ = esp_netif_create_default_wifi_ap();
+                    break;
+                default:
+                    throw std::runtime_error("Invalid WiFi mode");
+            }
         }
 #endif
     }
@@ -46,6 +58,9 @@ class Base {
         ip_address = "";
         instance_ = nullptr;
         auto res = esp_wifi_stop();
+        if (netif_) {
+            esp_netif_destroy(netif_);
+        }
 
 #ifdef ENABLE_SAFENET
         if (res != ESP_OK) {
@@ -82,13 +97,18 @@ class Base {
         }
     }
 
+    Mode getCurrentMode() {
+        return mode_;
+    }
+
   protected:
     inline static std::string ip_address = "";
-    inline static std::atomic<Wifi::Mode> mode;
 
   private:
+    inline static std::atomic<Wifi::Mode> mode_ = Mode::INVALID;
     inline static Base* instance_ = nullptr;
     inline static constexpr TagType TAG = "WIFI_BASE";
-};
+    inline static esp_netif_t* netif_ = nullptr;
+};  // namespace Wifi
 };  // namespace Wifi
 #endif

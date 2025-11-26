@@ -46,7 +46,7 @@ void true_main() {
 
         initBlink();
 
-        Core core({"kgsn2g", "kbtaPR45ka$"});
+        Core core;
         // Core core({"AbobaNet", "Aboba_425784_Net"});
         time_t now = time(nullptr);
         std::cout << "CORE START TIME: " << ctime(&now) << std::endl;
@@ -62,22 +62,22 @@ void true_main() {
             static int i = 0;
             ++i;
             vTaskDelay(pdMS_TO_TICKS(1500));
-            auto res =
-              udp_wrapper.send("192.168.75.71", 12345, data + std::to_string(i));
-            if (res != ESP_OK) {
-                esp_log(
-                  kErrorLogConfig,
-                  "UDP_TEST",
-                  "Failed to send UDP packet %d",
-                  res);
-            }
-            global::blinkLED(50);
-            global::blinkLED(50);
-            global::blinkLED(50);
-            global::blinkLED(50);
-            global::blinkLED(50);
-            global::blinkLED(50);
-            print_rssi();
+            // auto res =
+            //   udp_wrapper.send("192.168.75.71", 12345, data + std::to_string(i));
+            // if (res != ESP_OK) {
+            //     esp_log(
+            //       kErrorLogConfig,
+            //       "UDP_TEST",
+            //       "Failed to send UDP packet %d",
+            //       res);
+            // }
+            // global::blinkLED(50);
+            // global::blinkLED(50);
+            // global::blinkLED(50);
+            // global::blinkLED(50);
+            // global::blinkLED(50);
+            // global::blinkLED(50);
+            // print_rssi();
         };
 #ifdef ENABLE_SAFENET
     } catch (const std::exception& e) {
