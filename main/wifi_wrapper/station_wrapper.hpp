@@ -1,49 +1,39 @@
-#ifndef WIFI_HANDLER_HPP
-#define WIFI_HANDLER_HPP
+#ifndef STATION_WRAPPER_HPP
+#define STATION_WRAPPER_HPP
 #include "../common/common.hpp"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_wifi.h"
+#include "wifi_base.hpp"
 #include "wifi_group_wrapper.hpp"
 #include <atomic>
 #include <string>
+namespace Wifi {
 
-enum class ConnectionState : uint8_t {
-    CONNECTED,
-    CONNECTING,
-    DISCONNECTED,
-    FAILED_TO_CONNECT
-};
-class WifiHandler {
+class StationWrapper : public Base {
   public:
-    WifiHandler() {
-#ifdef ENABLE_SAFENET
-        if (exists_) {
-            throw std::runtime_error("WifiHandler already exists!");
-        }
-#endif
-        init();
-    }
-    ~WifiHandler() {
-    }
+    StationWrapper() { init(); }
+    ~StationWrapper() {}
 
     // Delete copy and move operations
-    WifiHandler(const WifiHandler& other) = delete;
-    WifiHandler& operator=(const WifiHandler& other) = delete;
-    WifiHandler(WifiHandler&& other) = delete;
-    WifiHandler& operator=(WifiHandler&& other) = delete;
+    StationWrapper(const StationWrapper& other) = delete;
+    StationWrapper& operator=(const StationWrapper& other) = delete;
+    StationWrapper(StationWrapper&& other) = delete;
+    StationWrapper& operator=(StationWrapper&& other) = delete;
 
-    bool
-    connect(const std::string& ssid, const std::string& password, int max_attempts = 5);
+    bool connect(
+      const std::string& ssid,
+      const std::string& password,
+      int max_attempts = std::numeric_limits<int>::max());
 
     bool waitForConnected();
 
     void disconnect();
     bool isConnected() const;
-    std::string getIp() {
-        return ip_str;
-    }
+    std::string getIp();
+
+    virtual void init() final;
 
   private:
     static void event_handler(
@@ -51,8 +41,6 @@ class WifiHandler {
       esp_event_base_t event_base,
       int32_t event_id,
       void* event_data);
-
-    void init();
 
     void resetAttempts();
     void updateConnectionState(ConnectionState new_state);
@@ -66,15 +54,14 @@ class WifiHandler {
     void handleGotIp(ip_event_got_ip_t* event_data);
 
     void resetIpString();
-#if ENABLE_SAFENET
-    inline static std::atomic<bool> exists_ = false;
-#endif
 
     std::atomic<ConnectionState> connection_state_ = ConnectionState::DISCONNECTED;
-    static const char* TAG;
+
     int current_attempt_ = 0;
-    int max_attempts_ = 5;
+    int max_attempts_;
     std::string ip_str;
     wifi_config_t wifi_config_ = {};
+    static constexpr TagType TAG = "wifi_station";
 };
-#endif  // WIFI_HANDLER_HPP
+};      // namespace Wifi
+#endif  // wifi_station_HPP

@@ -2,17 +2,42 @@
 #define COMMON_HPP
 #include "esp_event.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <atomic>
 #include <iostream>
-
 typedef const char* TagType;
 static constexpr int WIFI_CONNECTED_BIT = BIT0;
 static constexpr int WIFI_FAIL_BIT = BIT1;
+namespace Wifi {
 
+enum class ConnectionState : uint8_t {
+    CONNECTED,
+    CONNECTING,
+    DISCONNECTED,
+    FAILED_TO_CONNECT
+};
+
+class StationWrapper;
+};  // namespace Wifi
+namespace RotationController {
+enum class Direction : uint8_t {
+    CLOCKWISE = 0,
+    COUNTER_CLOCKWISE
+};
+enum class StepMode : uint8_t {
+    STEP_FULL = 0,
+    STEP_1_2,
+    STEP_1_4,
+    STEP_1_8,
+    STEP_1_16,
+    STEP_1_32,
+};
+};  // namespace RotationController
 struct TimeConv {
     // Milliseconds to microseconds
     static constexpr uint64_t ms(uint64_t ms) noexcept { return ms * 1'000ULL; }
@@ -35,22 +60,12 @@ inline void initializeWifiStack();
 struct SystemStatus {
   public:
     inline static bool getSystemStatus() { return system_status_; }
-    inline static bool getWifiStatus() { return wifi_status_; }
 
   private:
     friend void initializeSystem();
-    friend void initializeWifiStack();
     inline static bool system_status_ = false;
-    inline static bool wifi_status_ = false;
 };
 
-struct AssignedIp {
-    inline static std::string getCurrentIp() { return ip_address; }
-
-  private:
-    friend class WifiHandler;
-    inline static std::string ip_address;
-};
 constexpr esp_log_config_t kInfoLogConfig = {
   .opts = {
     .log_level = ESP_LOG_INFO,
@@ -71,7 +86,6 @@ constexpr esp_log_config_t kErrorLogConfig = {
     .binary_mode = 0,
     .reserved = 0}};
 void initializeSystem();
-void initializeWifiStack();
 
 inline std::tuple<bool, uint8_t, uint8_t, uint8_t> parseTime(
   const std::string& timeStr) {

@@ -1,3 +1,4 @@
+#ifdef ENABLE_MCPWM
 #ifndef MCPWM_WRAPPER_HPP
 #define MCPWM_WRAPPER_HPP
 #include "../gpio_common.hpp"
@@ -164,3 +165,4 @@ class McpwmWrapper : public GpioBase {
 };
 };  // namespace GPIO
 #endif
+#endif  // ENABLE_MCPWM

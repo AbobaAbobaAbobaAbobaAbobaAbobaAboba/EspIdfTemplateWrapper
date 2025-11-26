@@ -1,0 +1,5 @@
+remove everything after '_' symbol including '_' and place it in root directory.
+
+E.g sdkconfig_esp32c3 -> sdkconfig
+And then move it to the partitions.csv and directory main exist. (not inside the main dir, but one level higher.).
+If you're in configs dir, then place it one level higher, i.e ../ 

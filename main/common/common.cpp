@@ -20,23 +20,6 @@ void initializeSystem() {
         SystemStatus::system_status_ = true;
     }
     LittleFS::LittleFsWrapper::init();
-    initializeWifiStack();
-    // led = GPIO::GpioBasicWrapper::getInstance(LED_PIN);
-    // if (led->isConfigured() == false) {
-    //     led->configure(GPIO_MODE_OUTPUT, GPIO::PullMode::NONE);
-    // }
+
     Scheduler::Scheduler::init();
-}
-void initializeWifiStack() {
-    esp_netif_create_default_wifi_sta();
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-
-    esp_err_t err = esp_wifi_init(&cfg);
-    ESP_ERROR_CHECK(err);
-
-    if (err != ESP_OK) {
-        SystemStatus::wifi_status_ = false;
-    } else {
-        SystemStatus::wifi_status_ = true;
-    }
 }

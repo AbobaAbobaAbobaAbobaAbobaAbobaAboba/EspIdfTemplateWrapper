@@ -42,7 +42,7 @@ class WifiGroupWrapper {
     }
 
   private:
-    friend class WifiHandler;
+    friend class StationWrapper;
     EventGroupHandle_t& get() { return wifi_event_group_; }
     EventGroupHandle_t wifi_event_group_;
 };

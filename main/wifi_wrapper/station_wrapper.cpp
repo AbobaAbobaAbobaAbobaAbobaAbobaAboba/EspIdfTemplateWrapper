@@ -1,5 +1,7 @@
-#include "wifi_handler.hpp"
-bool WifiHandler::connect(
+#include "station_wrapper.hpp"
+
+namespace Wifi {
+bool StationWrapper::connect(
   const std::string& ssid,
   const std::string& password,
   int max_attempts) {
@@ -11,14 +13,14 @@ bool WifiHandler::connect(
 
     esp_log(
       kInfoLogConfig,
-      "WIFI_HANDLER",
+      "wifi_station",
       "Attempting to connect to %s with pass %s \n",
       wifi_config_.sta.ssid,
       wifi_config_.sta.password);
 
     return prepareWifi();
 }
-bool WifiHandler::waitForConnected() {
+bool StationWrapper::waitForConnected() {
     while (true) {
         if (isConnected()) {
             return true;
@@ -29,9 +31,9 @@ bool WifiHandler::waitForConnected() {
         vTaskDelay(pdMS_TO_TICKS(300));
     }
 }
-void WifiHandler::disconnect() {
+void StationWrapper::disconnect() {
     if (connection_state_ != ConnectionState::CONNECTED) {
-        esp_log(kInfoLogConfig, "WIFI_HANDLER", "Not connected to WiFi");
+        esp_log(kInfoLogConfig, "wifi_station", "Not connected to WiFi");
         return;
     }
 
@@ -42,12 +44,34 @@ void WifiHandler::disconnect() {
     ESP_ERROR_CHECK(err);
 
     connection_state_ = ConnectionState::DISCONNECTED;
-    esp_log(kInfoLogConfig, "WIFI_HANDLER", "Disconnected from WiFi");
+    esp_log(kInfoLogConfig, "wifi_station", "Disconnected from WiFi");
 }
-bool WifiHandler::isConnected() const {
+bool StationWrapper::isConnected() const {
     return connection_state_ == ConnectionState::CONNECTED;
 }
-void WifiHandler::init() {
+std::string StationWrapper::getIp() {
+    return ip_str;
+}
+
+void StationWrapper::init() {
+    esp_netif_create_default_wifi_sta();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+
+    esp_err_t err = esp_wifi_init(&cfg);
+    if (err != ESP_OK) {
+        esp_log(
+          kErrorLogConfig,
+          TAG,
+          "Failed to initialize WiFi %s \n",
+          esp_err_to_name(err));
+#ifdef ENABLE_SAFENET
+        throw std::runtime_error(
+          "Failed to initialize WiFi: " + std::string(esp_err_to_name(err)));
+#endif
+        deinit();
+        return;
+    }
+
     esp_event_handler_instance_register(
       WIFI_EVENT,
       ESP_EVENT_ANY_ID,
@@ -62,17 +86,17 @@ void WifiHandler::init() {
       this,
       nullptr);
     ip_str.resize(IP4ADDR_STRLEN_MAX + 1);
-    exists_ = true;
 }
-void WifiHandler::event_handler(
+
+void StationWrapper::event_handler(
   void* arg,
   esp_event_base_t event_base,
   int32_t event_id,
   void* event_data) {
-    WifiHandler* handler = static_cast<WifiHandler*>(arg);
+    StationWrapper* handler = static_cast<StationWrapper*>(arg);
     esp_log(
       kInfoLogConfig,
-      "WIFI_HANDLER",
+      "wifi_station",
       "Received event %s %d  \n",
       event_base,
       event_id);
@@ -90,14 +114,14 @@ void WifiHandler::event_handler(
         handler->handleGotIp(event);
     }
 }
-void WifiHandler::resetAttempts() {
+void StationWrapper::resetAttempts() {
     current_attempt_ = 0;
 }
-void WifiHandler::updateConnectionState(ConnectionState new_state) {
+void StationWrapper::updateConnectionState(ConnectionState new_state) {
     connection_state_ = new_state;
     resetAttempts();
 }
-void WifiHandler::prepareWifiCredentials(
+void StationWrapper::prepareWifiCredentials(
   const std::string& ssid,
   const std::string& password) {
     memset(&wifi_config_, 0, sizeof(wifi_config_t));
@@ -113,68 +137,93 @@ void WifiHandler::prepareWifiCredentials(
 
     wifi_config_.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 }
-bool WifiHandler::prepareWifi() {
+bool StationWrapper::prepareWifi() {
     esp_err_t err = esp_wifi_set_mode(WIFI_MODE_STA);
-    ESP_ERROR_CHECK(err);
-
-    err = esp_wifi_set_config(WIFI_IF_STA, &wifi_config_);
-    ESP_ERROR_CHECK(err);
-
-    err = esp_wifi_start();
-    ESP_ERROR_CHECK(err);
-
     if (err != ESP_OK) {
         esp_log(
-          kInfoLogConfig,
-          "WIFI_HANDLER",
-          "Failed to start wifi %s \n",
+          kErrorLogConfig,
+          "wifi_station",
+          "Failed to set wifi mode %s \n",
           esp_err_to_name(err));
-
+#ifdef ENABLE_SAFENET
+        throw std::runtime_error(
+          "Failed to set wifi mode: " + std::string(esp_err_to_name(err)));
+#endif
         return false;
     }
+
+    err = esp_wifi_set_config(WIFI_IF_STA, &wifi_config_);
+    if (err != ESP_OK) {
+        esp_log(
+          kErrorLogConfig,
+          "wifi_station",
+          "Failed to set wifi config %s \n",
+          esp_err_to_name(err));
+#ifdef ENABLE_SAFENET
+        throw std::runtime_error(
+          "Failed to set wifi config: " + std::string(esp_err_to_name(err)));
+#endif
+        return false;
+    }
+
+    err = esp_wifi_start();
+    if (err != ESP_OK) {
+        esp_log(
+          kErrorLogConfig,
+          "wifi_station",
+          "Failed to start wifi  %s \n",
+          esp_err_to_name(err));
+#ifdef ENABLE_SAFENET
+        throw std::runtime_error(
+          "Failed to start wifi : " + std::string(esp_err_to_name(err)));
+#endif
+        return false;
+    }
+
     return true;
 }
-void WifiHandler::handleWifiStart() {
-    esp_log(kInfoLogConfig, "WIFI_HANDLER", "WiFi started, connecting to AP...");
+void StationWrapper::handleWifiStart() {
+    esp_log(kInfoLogConfig, "wifi_station", "WiFi started, connecting to AP...");
     esp_wifi_connect();
     updateConnectionState(ConnectionState::CONNECTING);
     ++current_attempt_;
 }
-void WifiHandler::handleWifiDisconnect() {
+void StationWrapper::handleWifiDisconnect() {
     if (current_attempt_ < max_attempts_) {
         esp_wifi_connect();
         esp_log(
           kInfoLogConfig,
-          "WIFI_HANDLER",
+          "wifi_station",
           "Reconnecting to AP, attempt %d",
           current_attempt_);
         ++current_attempt_;
     } else {
         esp_log(
           kErrorLogConfig,
-          "WIFI_HANDLER",
+          "wifi_station",
           "Failed to connect to AP after %d attempts",
           max_attempts_);
         updateConnectionState(ConnectionState::FAILED_TO_CONNECT);
     }
 }
-void WifiHandler::handleWifiConnected() {
+void StationWrapper::handleWifiConnected() {
     updateConnectionState(ConnectionState::CONNECTED);
 }
 
-void WifiHandler::handleGotIp(ip_event_got_ip_t* event_data) {
+void StationWrapper::handleGotIp(ip_event_got_ip_t* event_data) {
     resetIpString();
     esp_ip4addr_ntoa(&event_data->ip_info.ip, ip_str.data(), ip_str.size());
     esp_log(
       kInfoLogConfig,
-      "WIFI_HANDLER",
+      "wifi_station",
       "Connected to AP. Got IP: %s \n",
       ip_str.c_str());
-    AssignedIp::ip_address = ip_str;
+    ip_address = ip_str;
 }
 
-void WifiHandler::resetIpString() {
+void StationWrapper::resetIpString() {
     for (auto& c : ip_str) {
         c = '\0';
     }
 }
+};  // namespace Wifi

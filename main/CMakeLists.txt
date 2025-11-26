@@ -15,20 +15,20 @@ set(MY_ESP_COMPONENTS
 )
 
 idf_component_register(SRCS "main.cpp"
- "wifi_wrapper/wifi_handler.cpp"
-  "http_wrapper/http_server_wrapper.cpp"
+    "wifi_wrapper/station_wrapper.cpp"
+    "wifi_wrapper/ap_wrapper.cpp"
+    "http_wrapper/http_server_wrapper.cpp"
    "littlefs_wrapper/littlefs_wrapper.cpp"
     "json_wrapper/json_wrapper.cpp"
     "gpio_wrappers/gpio_basic_wrapper/gpio_basic_wrapper.cpp"
     "websocket_handler/websocket_handler.cpp"
     "core/core.cpp"
     "common/common.cpp"
-    "gpio_wrappers/mcpwm_wrapper/mcpwm_wrapper.cpp"
     "sntp_wrapper/sntp_wrapper.cpp"
     "scheduler/scheduler.cpp"
-    "rotation_controller/rotation_controller.cpp"
     "i2c_wrapper/i2c_wrapper.cpp"
     "config_wrapper/config_wrapper.cpp"
+    "socket_wrappers/udp_wrapper/udp_wrapper.cpp"
      REQUIRES ${MY_ESP_COMPONENTS}
 INCLUDE_DIRS ".")
 

@@ -1,7 +1,7 @@
 #include "http_server_wrapper.hpp"
 #include "../common/packet_construct.hpp"
 #include "../common/packet_parse.hpp"
-
+#include "../wifi_wrapper/wifi_base.hpp"
 void HttpServerWrapper::init() {
     exists_ = true;
 }
@@ -44,7 +44,7 @@ void HttpServerWrapper::initUriHandlers() {
 HttpServerWrapper::HttpServerWrapper() {
 #ifdef ENABLE_SAFENET
     if (exists_) {
-        throw std::runtime_error("WifiHandler already exists!");
+        throw std::runtime_error("StationWrapper already exists!");
     }
 #endif
     instance_ = this;
@@ -259,7 +259,7 @@ esp_err_t HttpServerWrapper::generic_get_handler(httpd_req_t* req) {
 
 esp_err_t HttpServerWrapper::config_handler(httpd_req_t* req) {
     JsonWrapper json;
-    json.addString("ip", AssignedIp::getCurrentIp());
+    json.addString("ip", Wifi::Base::getCurrentIp());
     httpd_resp_set_type(req, "application/json");
     auto str = json.serialize();
     httpd_resp_send(req, str.get(), strlen(str.get()));
@@ -267,7 +267,7 @@ esp_err_t HttpServerWrapper::config_handler(httpd_req_t* req) {
       kInfoLogConfig,
       HttpServerWrapper::TAG,
       "Served config with IP %s",
-      AssignedIp::getCurrentIp().c_str());
+      Wifi::Base::getCurrentIp().c_str());
     return ESP_OK;
 }
 
