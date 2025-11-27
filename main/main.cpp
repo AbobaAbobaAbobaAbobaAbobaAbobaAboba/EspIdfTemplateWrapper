@@ -78,6 +78,9 @@ void true_main() {
             // global::blinkLED(50);
             // global::blinkLED(50);
             // print_rssi();
+            global::blinkExternalLED(100);
+            global::blinkExternalLED(100);
+            global::blinkExternalLED(100);
         };
 #ifdef ENABLE_SAFENET
     } catch (const std::exception& e) {

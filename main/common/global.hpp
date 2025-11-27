@@ -6,9 +6,9 @@
 namespace global {
 
 inline std::shared_ptr<GPIO::GpioBasicWrapper> led_pin;
+inline std::shared_ptr<GPIO::GpioBasicWrapper> external_led_pin;
 
-constexpr std::uint64_t millisToMicros(std::uint64_t milliseconds)
-{
+constexpr std::uint64_t millisToMicros(std::uint64_t milliseconds) {
     return milliseconds * 1000ULL;
 }
 inline void initGlobalPins() {
@@ -16,12 +16,23 @@ inline void initGlobalPins() {
       GPIO_NUM_8,
       GPIO_MODE_OUTPUT,
       GPIO::PullMode::NONE);
+    global::external_led_pin = GPIO::GpioBasicWrapper::createPin(
+      GPIO_NUM_10,
+      GPIO_MODE_OUTPUT,
+      GPIO::PullMode::PULL_DOWN);
 }
 
 inline void blinkLED(int interval = 100) {
     global::led_pin->write(0);
     vTaskDelay(pdMS_TO_TICKS(interval));
     global::led_pin->write(1);
+    vTaskDelay(pdMS_TO_TICKS(interval));
+}
+
+inline void blinkExternalLED(int interval = 100) {
+    global::external_led_pin->write(1);
+    vTaskDelay(pdMS_TO_TICKS(interval));
+    global::external_led_pin->write(0);
     vTaskDelay(pdMS_TO_TICKS(interval));
 }
 }  // namespace global
