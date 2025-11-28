@@ -29,6 +29,7 @@ idf_component_register(SRCS "main.cpp"
     "i2c_wrapper/i2c_wrapper.cpp"
     "config_wrapper/config_wrapper.cpp"
     "socket_wrappers/udp_wrapper/udp_wrapper.cpp"
+    "hardware/button_wrapper/button_wrapper.cpp"
      REQUIRES ${MY_ESP_COMPONENTS}
 INCLUDE_DIRS ".")
 

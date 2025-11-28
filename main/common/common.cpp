@@ -1,7 +1,7 @@
 #include "common.hpp"
 #include "../littlefs_wrapper/littlefs_wrapper.hpp"
 #include "../scheduler/scheduler.hpp"
-
+#include <driver/gpio.h>
 void initializeSystem() {
     // System initialization
 
@@ -13,6 +13,9 @@ void initializeSystem() {
 
     err = esp_event_loop_create_default();
     ESP_ERROR_CHECK(err);
+
+    err =
+      customErrorCheck(gpio_install_isr_service(0), "Failed to init ISR GPIO service");
 
     if (err != ESP_OK) {
         SystemStatus::system_status_ = false;

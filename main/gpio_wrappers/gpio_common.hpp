@@ -35,6 +35,9 @@ class GpioBase {
     PinType getType() {
         return type_;
     }
+    gpio_num_t getPin() {
+        return pin_;
+    }
 
   protected:
     static bool expired(gpio_num_t pin) {

@@ -54,68 +54,9 @@ struct Task {
     esp_err_t createTimer(const esp_timer_create_args_t& timer_cfg);
     esp_err_t startOnce(uint64_t microseconds);
     esp_err_t startPeriodic(uint64_t microseconds);
-    esp_err_t startSynced(uint64_t microseconds) {
-        if (!SntpWrapper::isInit()) {
-#ifdef ENABLE_SAFENET
-            throw std::runtime_error(
-              "Attempting to create timed task when global time is not init");
-#elif
-            esp_log(
-              kErrorLogConfig,
-              TAG,
-              "Attempting to create timed task when global time is not init");
-#endif
-        }
-        sync_period_ = microseconds;
+    esp_err_t startSynced(uint64_t microseconds);
 
-        timeval tv;
-        gettimeofday(&tv, nullptr);
-        uint64_t now_micros =
-          static_cast<uint64_t>(tv.tv_sec) * 1000000ULL + tv.tv_usec;
-
-        expected_time_ = std::make_unique<uint64_t>(now_micros + sync_period_);
-        return startOnce(microseconds);
-    }
-
-    esp_err_t continueSynced() {
-        if (!expected_time_) {
-            throw std::runtime_error(
-              "attempting continue synced when timer is not a sync one!");
-        }
-
-        struct timeval tv;
-        gettimeofday(&tv, nullptr);
-        uint64_t now_micros =
-          static_cast<uint64_t>(tv.tv_sec) * 1000000ULL + tv.tv_usec;
-
-        const int64_t diff_micros =
-          static_cast<int64_t>(now_micros) - static_cast<int64_t>(*expected_time_);
-
-        *expected_time_ += sync_period_;
-
-        const uint64_t abs_diff_micros = std::abs(diff_micros);
-
-        esp_log(
-          kInfoLogConfig,
-          TAG,
-          "The difference was %lld %llu microseconds",
-          diff_micros,
-          abs_diff_micros);
-
-        if (abs_diff_micros < 1'000) {  // Example threshold: 1ms; adjust as needed
-            // (original was ~1s)
-            esp_log(kInfoLogConfig, TAG, "Returning unchanged");
-            return startOnce(sync_period_);
-        }
-
-        int64_t adjusted_period = static_cast<int64_t>(sync_period_) - diff_micros;
-        if (adjusted_period < 1) {
-            adjusted_period = 1;  // Clamp to minimum to avoid invalid timer periods
-        }
-
-        esp_log(kInfoLogConfig, TAG, "Adjusting to %lld", adjusted_period);
-        return startOnce(static_cast<uint64_t>(adjusted_period));
-    }
+    esp_err_t continueSynced();
     esp_err_t stop();
     esp_err_t deleteTimer();
 

@@ -35,6 +35,7 @@ inline void blinkExternalLED(int interval = 100) {
     global::external_led_pin->write(0);
     vTaskDelay(pdMS_TO_TICKS(interval));
 }
+
 }  // namespace global
 
 #endif

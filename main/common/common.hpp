@@ -10,9 +10,37 @@
 #include <freertos/task.h>
 #include <atomic>
 #include <iostream>
+#include <mutex>
 typedef const char* TagType;
 static constexpr int WIFI_CONNECTED_BIT = BIT0;
 static constexpr int WIFI_FAIL_BIT = BIT1;
+
+typedef enum {
+    skf_printer_GenericCommandIdle = 0x0000,
+    skf_printer_GenericCommandParachute = 0x0001,
+} skf_printer_GenericCommandId;
+
+typedef struct skf_prext_GenericCommandParachuteData_t {
+    /// @brief Any non zero value is parachute open
+    uint8_t activate;
+} skf_prext_GenericCommandParachuteData;
+
+typedef struct skf_prext_GenericCommandMsg_t {
+    /// @brief [skf_printer_GenericCommandId]
+    uint16_t cmd_id;
+    union {
+        skf_prext_GenericCommandParachuteData parachute;
+        uint8_t payload[8];
+    };
+} skf_prext_GenericCommandMsg;
+
+inline esp_err_t customErrorCheck(esp_err_t err, const std::string& msg) {
+    if (err != ESP_OK) {
+        throw std::runtime_error(msg + ": " + std::string(esp_err_to_name(err)));
+    }
+    return err;
+}
+
 namespace Wifi {
 
 enum class ConnectionState : uint8_t {

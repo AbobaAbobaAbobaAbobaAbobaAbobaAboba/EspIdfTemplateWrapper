@@ -193,8 +193,6 @@ void Scheduler::handler(void* arg) {
 }
 
 bool Scheduler::innerExecute(int id) {
-    esp_log(kInfoLogConfig, TAG, "Worker has started working on %d!", id);
-
     std::lock_guard<std::recursive_mutex> guard(mutex_);
 
     auto it = task_map_.find(id);
@@ -329,9 +327,6 @@ void Scheduler::Scheduler::worker([[maybe_unused]] void* pvParameters) {
 }
 
 Task::Task() {
-#ifdef ENABLE_SAFENET
-    esp_log(kErrorLogConfig, TAG, "TASK CREATED");
-#endif
 }
 
 Task::Task(Task&& other) noexcept
@@ -343,14 +338,13 @@ Task::Task(Task&& other) noexcept
       cb_(std::move(other.cb_)),
       error_cb_(std::move(other.error_cb_)),
       expected_time_(std::move(other.expected_time_)) {
-    esp_log(kInfoLogConfig, TAG, "Move constructor is invoked!");
 }
 
 Task& Task::operator=(Task&& other) noexcept {
     if (this == &other) {
         return *this;
     }
-    esp_log(kInfoLogConfig, TAG, "Move assignment is invoked!");
+
     // Release current timer if necessary (assuming destructor logic handles
     // deletion; call it explicitly here to free resources before moving).
     if (timer_) {
@@ -388,13 +382,6 @@ Task::~Task() {
     if (timer_) {
         deleteTimer();
     }
-#ifdef ENABLE_SAFENET
-    if (id_) {
-        esp_log(kErrorLogConfig, TAG, "TASK REMOVED %d", *id_);
-    } else {
-        esp_log(kErrorLogConfig, TAG, "TASK REMOVED WITH EMPTY ID");
-    }
-#endif
 }
 
 esp_err_t Task::createTimer(const esp_timer_create_args_t& timer_cfg) {
@@ -419,6 +406,67 @@ esp_err_t Task::startPeriodic(uint64_t microseconds) {
     return esp_timer_start_periodic(timer_, microseconds);
 }
 
+esp_err_t Task::startSynced(uint64_t microseconds) {
+    if (!SntpWrapper::isInit()) {
+#ifdef ENABLE_SAFENET
+        throw std::runtime_error(
+          "Attempting to create timed task when global time is not init");
+#elif
+        esp_log(
+          kErrorLogConfig,
+          TAG,
+          "Attempting to create timed task when global time is not init");
+#endif
+    }
+    sync_period_ = microseconds;
+
+    timeval tv;
+    gettimeofday(&tv, nullptr);
+    uint64_t now_micros = static_cast<uint64_t>(tv.tv_sec) * 1000000ULL + tv.tv_usec;
+
+    expected_time_ = std::make_unique<uint64_t>(now_micros + sync_period_);
+    return startOnce(microseconds);
+}
+
+esp_err_t Task::continueSynced() {
+    if (!expected_time_) {
+        throw std::runtime_error(
+          "attempting continue synced when timer is not a sync one!");
+    }
+
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    uint64_t now_micros = static_cast<uint64_t>(tv.tv_sec) * 1000000ULL + tv.tv_usec;
+
+    const int64_t diff_micros =
+      static_cast<int64_t>(now_micros) - static_cast<int64_t>(*expected_time_);
+
+    *expected_time_ += sync_period_;
+
+    const uint64_t abs_diff_micros = std::abs(diff_micros);
+
+    esp_log(
+      kInfoLogConfig,
+      TAG,
+      "The difference was %lld %llu microseconds",
+      diff_micros,
+      abs_diff_micros);
+
+    if (abs_diff_micros < 1'000) {  // Example threshold: 1ms; adjust as needed
+        // (original was ~1s)
+        esp_log(kInfoLogConfig, TAG, "Returning unchanged");
+        return startOnce(sync_period_);
+    }
+
+    int64_t adjusted_period = static_cast<int64_t>(sync_period_) - diff_micros;
+    if (adjusted_period < 1) {
+        adjusted_period = 1;  // Clamp to minimum to avoid invalid timer periods
+    }
+
+    esp_log(kInfoLogConfig, TAG, "Adjusting to %lld", adjusted_period);
+    return startOnce(static_cast<uint64_t>(adjusted_period));
+}
+
 esp_err_t Task::stop() {
     return esp_timer_stop(timer_);
 }
@@ -426,7 +474,7 @@ esp_err_t Task::stop() {
 esp_err_t Task::deleteTimer() {
     esp_err_t err = esp_timer_stop(timer_);
 
-    if (err != ESP_OK) {
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
         esp_log(
           kErrorLogConfig,
           TAG,

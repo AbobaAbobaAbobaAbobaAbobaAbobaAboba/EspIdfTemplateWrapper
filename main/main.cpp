@@ -2,6 +2,7 @@
 #include "common/common.hpp"
 #include "common/global.hpp"
 #include "core/core.hpp"
+#include "hardware/button_wrapper/button_wrapper.hpp"
 #include "i2c_wrapper/i2c_wrapper.hpp"
 #include "scheduler/scheduler.hpp"
 #include "socket_wrappers/udp_wrapper/udp_wrapper.hpp"
@@ -10,6 +11,9 @@
 static void initBlink() {
     for (int i = 0; i < 10; ++i) {
         global::blinkLED(50);
+    }
+    for (int i = 0; i < 10; ++i) {
+        global::blinkExternalLED(50);
     }
 }
 static void verifySystem() {
@@ -39,6 +43,7 @@ void true_main() {
     try {
 #endif
 
+        esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_GPIO);
         initializeSystem();
         global::initGlobalPins();
 
@@ -47,13 +52,49 @@ void true_main() {
         initBlink();
 
         Core core;
+
         // Core core({"AbobaNet", "Aboba_425784_Net"});
         time_t now = time(nullptr);
         std::cout << "CORE START TIME: " << ctime(&now) << std::endl;
         UdpWrapper udp_wrapper;
         auto res = udp_wrapper.lock();
         std::string data = "Hello ABOBA !";
+        ButtonWrapper wrapper(GPIO_NUM_0);
 
+        skf_prext_GenericCommandMsg msg;
+        msg.cmd_id = skf_printer_GenericCommandParachute;
+        msg.parachute.activate = 1;
+
+        wrapper.setShortPressCallback(
+          []() { esp_log(kInfoLogConfig, "BUTTON", "Short press detected!"); });
+        wrapper.setLongPressCallback([&]() {
+            esp_log(kInfoLogConfig, "BUTTON", "Long press detected!");
+            udp_wrapper.send("192.168.43.1", 13551, reinterpret_cast<char*>(&msg));
+            // Scheduler::Scheduler::schedule(1'000'000, true, [&core]() {
+            //     esp_log(kInfoLogConfig, "BUTTON", "Blink1");
+            //     global::blinkExternalLED(300);
+            //     esp_log(kInfoLogConfig, "BUTTON", "Blink2");
+            //     global::blinkExternalLED(300);
+            //     esp_log(kInfoLogConfig, "BUTTON", "Blink3");
+            //     global::blinkExternalLED(300);
+            //     esp_log(kInfoLogConfig, "BUTTON", "Blink4");
+            //     global::blinkExternalLED(300);
+            //     esp_log(kInfoLogConfig, "BUTTON", "Blink5");
+            //     global::blinkExternalLED(300);
+            //     esp_log(kInfoLogConfig, "BUTTON", "Blink6");
+            //     global::blinkExternalLED(300);
+            //     esp_log(kInfoLogConfig, "BUTTON", "Blink7");
+            //     global::blinkExternalLED(300);
+            //     esp_log(kInfoLogConfig, "BUTTON", "Blink8");
+            //     global::blinkExternalLED(300);
+            //     esp_log(kInfoLogConfig, "BUTTON", "Blink9");
+            //     global::blinkExternalLED(300);
+            //     esp_log(kInfoLogConfig, "BUTTON", "Blink10");
+            //     global::blinkExternalLED(300);
+            //     esp_log(kInfoLogConfig, "BUTTON", "Blink11");
+            //     core.sleep(GPIO_NUM_0);
+            // });
+        });
         if (res != ESP_OK) {
             throw std::runtime_error("Failed to lock UDP wrapper");
         }
@@ -78,9 +119,6 @@ void true_main() {
             // global::blinkLED(50);
             // global::blinkLED(50);
             // print_rssi();
-            global::blinkExternalLED(100);
-            global::blinkExternalLED(100);
-            global::blinkExternalLED(100);
         };
 #ifdef ENABLE_SAFENET
     } catch (const std::exception& e) {

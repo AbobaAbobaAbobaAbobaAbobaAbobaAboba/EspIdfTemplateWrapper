@@ -8,6 +8,7 @@
 #include "../sntp_wrapper/sntp_wrapper.hpp"
 #include "../wifi_wrapper/ap_wrapper.hpp"
 #include "../wifi_wrapper/station_wrapper.hpp"
+#include <esp_sleep.h>
 #include <functional>
 #include <string>
 #include <type_traits>
@@ -20,6 +21,11 @@ class Core {
     Core& operator=(const Core& other) = delete;
     Core(Core&& other) = delete;
     Core& operator=(Core&& other) = delete;
+    void sleep(gpio_num_t pin) {
+        wifi_module_.reset();
+        esp_deep_sleep_enable_gpio_wakeup(1ULL << pin, ESP_GPIO_WAKEUP_GPIO_HIGH);
+        esp_deep_sleep_start();
+    }
 
   private:
     void init();

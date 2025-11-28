@@ -92,7 +92,12 @@ void GpioBasicWrapper::configurePin(gpio_mode_t mode, PullMode pull_mode) {
 
     // Configure GPIO
     io_conf_ = {};
-    io_conf_.intr_type = GPIO_INTR_DISABLE;  // No interrupts
+    if (mode == GPIO_MODE_INPUT) {
+        io_conf_.intr_type = GPIO_INTR_ANYEDGE;
+    } else {
+        io_conf_.intr_type = GPIO_INTR_DISABLE;  // No interrupts
+    }
+
     io_conf_.mode = mode;                    // Input or Output mode
     io_conf_.pin_bit_mask = (1ULL << pin_);  // Select pin
 
@@ -127,4 +132,4 @@ void GpioBasicWrapper::configurePin(gpio_mode_t mode, PullMode pull_mode) {
       pin_,
       mode == GPIO_MODE_OUTPUT ? "output" : "input");
 }
-};
+};  // namespace GPIO
