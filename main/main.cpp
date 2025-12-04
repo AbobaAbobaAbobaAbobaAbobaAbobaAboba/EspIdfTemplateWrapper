@@ -1,4 +1,5 @@
 
+#include "ble_wrapper/ble_wrapper.hpp"
 #include "common/common.hpp"
 #include "common/global.hpp"
 #include "core/core.hpp"
@@ -64,41 +65,31 @@ void true_main() {
         skf_prext_GenericCommandMsg msg;
         msg.cmd_id = skf_printer_GenericCommandParachute;
         msg.parachute.activate = 1;
+        wrapper.addHoldEvent(5'00'000, []() {
+            esp_log(kInfoLogConfig, "BUTTON", "long press detected!");
+        });
+        wrapper.addHoldEvent(5'000'000, [&]() {
+            esp_log(kInfoLogConfig, "BUTTON", "sleep press detected!");
+            global::blinkExternalLED(300);
+            global::blinkExternalLED(300);
+            global::blinkExternalLED(300);
+            global::blinkExternalLED(300);
+            global::blinkExternalLED(300);
+            global::blinkExternalLED(300);
+            global::blinkExternalLED(300);
+            global::blinkExternalLED(300);
+            global::blinkExternalLED(300);
+            global::blinkExternalLED(300);
+            core.sleep(wrapper.getPin());
+        });
 
         wrapper.setShortPressCallback(
           []() { esp_log(kInfoLogConfig, "BUTTON", "Short press detected!"); });
-        wrapper.setLongPressCallback([&]() {
-            esp_log(kInfoLogConfig, "BUTTON", "Long press detected!");
-            udp_wrapper.send("192.168.43.1", 13551, reinterpret_cast<char*>(&msg));
-            // Scheduler::Scheduler::schedule(1'000'000, true, [&core]() {
-            //     esp_log(kInfoLogConfig, "BUTTON", "Blink1");
-            //     global::blinkExternalLED(300);
-            //     esp_log(kInfoLogConfig, "BUTTON", "Blink2");
-            //     global::blinkExternalLED(300);
-            //     esp_log(kInfoLogConfig, "BUTTON", "Blink3");
-            //     global::blinkExternalLED(300);
-            //     esp_log(kInfoLogConfig, "BUTTON", "Blink4");
-            //     global::blinkExternalLED(300);
-            //     esp_log(kInfoLogConfig, "BUTTON", "Blink5");
-            //     global::blinkExternalLED(300);
-            //     esp_log(kInfoLogConfig, "BUTTON", "Blink6");
-            //     global::blinkExternalLED(300);
-            //     esp_log(kInfoLogConfig, "BUTTON", "Blink7");
-            //     global::blinkExternalLED(300);
-            //     esp_log(kInfoLogConfig, "BUTTON", "Blink8");
-            //     global::blinkExternalLED(300);
-            //     esp_log(kInfoLogConfig, "BUTTON", "Blink9");
-            //     global::blinkExternalLED(300);
-            //     esp_log(kInfoLogConfig, "BUTTON", "Blink10");
-            //     global::blinkExternalLED(300);
-            //     esp_log(kInfoLogConfig, "BUTTON", "Blink11");
-            //     core.sleep(GPIO_NUM_0);
-            // });
-        });
         if (res != ESP_OK) {
             throw std::runtime_error("Failed to lock UDP wrapper");
         }
 
+        BluetoothWrapper ble_wrapper;
         while (true) {
             static int i = 0;
             ++i;

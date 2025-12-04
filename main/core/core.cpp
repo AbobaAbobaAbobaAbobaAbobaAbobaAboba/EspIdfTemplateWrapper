@@ -89,7 +89,7 @@ bool Core::startStation() {
         return false;
     }
 
-    return ptr->connect(ssid, password, 40);
+    return ptr->connect(ssid, password, 5);
 }
 
 void Core::blinkCrap() {
