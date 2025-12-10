@@ -90,6 +90,59 @@ void true_main() {
         }
 
         BluetoothWrapper ble_wrapper;
+        const ble_uuid128_t service_uuid = BLE_UUID128_INIT(
+          0x2d,
+          0x71,
+          0xa2,
+          0x59,
+          0xb4,
+          0x58,
+          0xc8,
+          0x12,
+          0x99,
+          0x99,
+          0x43,
+          0x95,
+          0x00,
+          0x00,
+          0x37,
+          0x13);
+        const ble_uuid128_t char_uuid = BLE_UUID128_INIT(
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x37,
+          0x13);
+        ble_wrapper.setService(0, BLE_GATT_SVC_TYPE_PRIMARY, service_uuid);
+
+        ble_wrapper.setCharacteristic(
+          0,
+          0,
+          char_uuid,
+          BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+          [](void* context) -> std::optional<std::vector<uint8_t>> {
+              static int aboba = 0;
+              ++aboba;
+              global::blinkExternalLED(100);
+              global::blinkExternalLED(100);
+              global::blinkExternalLED(100);
+              std::vector<uint8_t> res;
+              res.resize(1);
+              res[0] = aboba;
+              return res;
+          });
+        ble_wrapper.start();
         while (true) {
             static int i = 0;
             ++i;
@@ -103,8 +156,15 @@ void true_main() {
             //       "Failed to send UDP packet %d",
             //       res);
             // }
-            // global::blinkLED(50);
-            // global::blinkLED(50);
+            global::blinkLED(50);
+            global::blinkLED(50);
+
+            static int aboba = 0;
+            std::vector<uint8_t> res;
+            res.resize(1);
+            res[0] = aboba;
+            ble_wrapper.notifyAll(0, 0, res.data(), res.size());
+            ++aboba;
             // global::blinkLED(50);
             // global::blinkLED(50);
             // global::blinkLED(50);

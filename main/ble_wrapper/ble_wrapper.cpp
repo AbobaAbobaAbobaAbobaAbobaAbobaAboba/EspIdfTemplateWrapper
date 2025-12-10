@@ -1,11 +1,10 @@
 #include "ble_wrapper.hpp"
-
+#include "../common/global.hpp"
 BluetoothWrapper::BluetoothWrapper() {
     if (instance != nullptr) {
         throw std::runtime_error("An instance of BluetoothWrapper already exists!");
     }
     instance = this;
-    init();
 }
 
 BluetoothWrapper::~BluetoothWrapper() {
@@ -150,6 +149,9 @@ int BluetoothWrapper::onGapEvent(struct ble_gap_event* event, void* arg) {
             if (event->connect.status == 0) {
                 if (ble_gap_conn_find(event->connect.conn_handle, &desc) != 0) {
                     esp_log(kWarnLogConfig, TAG, "Failed to find connection");
+                } else {
+                    std::lock_guard<std::mutex> guard(instance->mutex_);
+                    instance->clients_.insert(event->connect.conn_handle);
                 }
                 printConnectionInfo(&desc);
             }
@@ -166,6 +168,10 @@ int BluetoothWrapper::onGapEvent(struct ble_gap_event* event, void* arg) {
               "disconnect; reason=%d ",
               event->disconnect.reason);
             printConnectionInfo(&event->disconnect.conn);
+            {
+                std::lock_guard<std::mutex> guard(instance->mutex_);
+                instance->clients_.erase(event->connect.conn_handle);
+            }
             advertise();
             return 0;
         case BLE_GAP_EVENT_CONN_UPDATE:
@@ -289,11 +295,11 @@ void BluetoothWrapper::initGatt() {
     ble_svc_gatt_init();
     ble_svc_ans_init();
 
-    if (0 != ble_gatts_count_cfg(gatt_svr_svcs)) {
+    if (0 != ble_gatts_count_cfg(&services_.get())) {
         throw std::runtime_error("Failed to call ble_gatts_count_cfg");
     }
 
-    if (0 != ble_gatts_add_svcs(gatt_svr_svcs)) {
+    if (0 != ble_gatts_add_svcs(&services_.get())) {
         throw std::runtime_error("Failed to call ble_gatts_count_cfg");
     }
 }
@@ -317,5 +323,197 @@ void BluetoothWrapper::init() {
         throw std::runtime_error("Failed to set NimBLE device name!");
     }
 
-    nimble_port_freertos_init(bleprph_host_task);
+    nimble_port_freertos_init(hostTask);
+}
+
+void BluetoothWrapper::hostTask(void* param) {
+#ifdef ENABLE_SAFENET
+    try {
+#endif
+        esp_log(kInfoLogConfig, TAG, "BLE Host Task Started");
+        /* This function will return only when nimble_port_stop() is executed */
+        nimble_port_run();
+
+        nimble_port_freertos_deinit();
+#ifdef ENABLE_SAFENET
+    } catch (const std::exception& e) {
+        while (true) {
+            esp_log(
+              kErrorLogConfig,
+              "EXCEPTION",
+              "%s"
+              "\n",
+              e.what());
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        };
+    } catch (const char* msg) {
+        while (true) {
+            esp_log(
+              kErrorLogConfig,
+              "EXCEPTION",
+              "%s"
+              "\n",
+              msg);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        };
+    } catch (int code) {
+        while (true) {
+            esp_log(
+              kErrorLogConfig,
+              "EXCEPTION",
+              "%d"
+              "\n",
+              code);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        };
+    } catch (...) {
+        while (true) {
+            esp_log(kErrorLogConfig, "EXCEPTION", "Unknown exception occurred\n");
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            global::blinkLED(100);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        };
+    }
+#endif
+}
+
+int BluetoothWrapper::gattWrite(
+  struct os_mbuf* om,
+  uint16_t min_len,
+  uint16_t max_len,
+  void* dst,
+  uint16_t* len) {
+    uint16_t om_len;
+    int rc;
+
+    om_len = OS_MBUF_PKTLEN(om);
+    if (om_len < min_len || om_len > max_len) {
+        return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+    }
+
+    rc = ble_hs_mbuf_to_flat(om, dst, max_len, len);
+    if (rc != 0) {
+        return BLE_ATT_ERR_UNLIKELY;
+    }
+
+    return 0;
+}
+
+int BluetoothWrapper::gattAccess(
+  uint16_t conn_handle,
+  uint16_t attr_handle,
+  struct ble_gatt_access_ctxt* ctxt,
+  void* arg) {
+    int rc;
+
+    CharacteristicCallback callback = reinterpret_cast<CharacteristicCallback>(arg);
+
+    switch (ctxt->op) {
+        case BLE_GATT_ACCESS_OP_READ_CHR: {
+            auto result = callback(nullptr);
+            if (result.has_value()) {
+                rc = os_mbuf_append(
+                  ctxt->om,
+                  result.value().data(),
+                  result.value().size());
+            } else {
+                throw std::runtime_error("BLE GATT callback did not return any value!");
+            }
+
+            return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+            break;
+        }
+        case BLE_GATT_ACCESS_OP_WRITE_CHR: {
+            static constexpr size_t kBufferMaxSize = 128;
+            static std::array<uint8_t, kBufferMaxSize> buffer;
+            uint16_t actual_len = 0;
+            rc = gattWrite(ctxt->om, 0, kBufferMaxSize, buffer.data(), &actual_len);
+
+            auto result = callback(nullptr);
+
+            ble_gatts_chr_updated(attr_handle);
+
+            esp_log(
+              kInfoLogConfig,
+              TAG,
+              "Notification/Indication scheduled for "
+              "all subscribed peers.\n");
+            return rc;
+        }
+        default:
+            break;
+    }
+    esp_log(kWarnLogConfig, "ABOBA", "aboba %d", ctxt->op);
+    throw std::runtime_error("Forbidden behaviour");
+    return BLE_ATT_ERR_UNLIKELY;
+}
+
+void BluetoothWrapper::CharacteristicsWrapper::set(
+  size_t index,
+  const ble_uuid128_t& uuid,
+  ble_gatt_chr_flags flags,
+  CharacteristicCallback callback) {
+    if (index >= kMaxCharacteristics) {
+        throw std::out_of_range("CharacteristicsWrapper index out of bounds");
+    }
+
+    uuids_[index] = uuid;
+
+    characteristics_[index] = {
+      .uuid = &uuids_[index].u,
+      .access_cb = gattAccess,
+      .arg = reinterpret_cast<void*>(callback),
+      .descriptors = {0},
+      .flags = flags,
+      .min_key_size = 0,
+      .val_handle = &handles_[index],
+      .cpfd = nullptr};
+}
+
+void BluetoothWrapper::CharacteristicsWrapper::reset(size_t index) {
+    characteristics_[index] =
+      {nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, nullptr};
+}
+
+void BluetoothWrapper::ServicesDescriptor::set(
+  size_t index,
+  uint8_t type,
+  const ble_uuid128_t& uuid) {
+    if (index >= kMaxServices) {
+        throw std::runtime_error("Service index out of bounds");
+    }
+    uuids_[index] = uuid;
+    services_[index] = {/*** Service ***/
+                        .type = type,
+                        .uuid = &uuids_[index].u,
+                        .includes = nullptr,
+                        .characteristics = &char_wrappers_[index].get()};
+}
+
+void BluetoothWrapper::ServicesDescriptor::reset(size_t index) {
+    if (index >= kMaxServices) {
+        throw std::runtime_error("Service index out of bounds");
+    }
+    services_[index] = {};
+    for (int i = 0; i < CharacteristicsWrapper::kMaxCharacteristics; ++i) {
+        char_wrappers_[index].reset(i);
+    }
 }
