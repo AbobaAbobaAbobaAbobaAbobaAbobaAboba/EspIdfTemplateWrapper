@@ -21,7 +21,6 @@
 #include <string.h>
 #include <functional>
 #include <unordered_set>
-static constexpr uint16_t GATT_SVR_SVC_ALERT_UUID = 0x0000;
 typedef std::optional<std::vector<uint8_t>> (*CharacteristicCallback)(void*);
 class BluetoothWrapper {
   public:
@@ -132,7 +131,7 @@ class BluetoothWrapper {
     std::unordered_set<uint16_t> clients_;
     inline static uint8_t own_addr_type;
     inline static constexpr TagType TAG = "BLE_WRAPPER";
-    inline static BluetoothWrapper* instance = nullptr;
+    inline static BluetoothWrapper* instance_ = nullptr;
 };
 
 ;

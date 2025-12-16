@@ -19,7 +19,7 @@ inline void initGlobalPins() {
     global::external_led_pin = GPIO::GpioBasicWrapper::createPin(
       GPIO_NUM_10,
       GPIO_MODE_OUTPUT,
-      GPIO::PullMode::PULL_DOWN);
+      GPIO::PullMode::PULL_UP);
 }
 
 inline void blinkLED(int interval = 100) {
@@ -34,6 +34,18 @@ inline void blinkExternalLED(int interval = 100) {
     vTaskDelay(pdMS_TO_TICKS(interval));
     global::external_led_pin->write(0);
     vTaskDelay(pdMS_TO_TICKS(interval));
+}
+inline void resetAndHoldPins() {
+    global::external_led_pin->write(0);
+    global::external_led_pin->setHold(true);
+    global::led_pin->write(1);
+    global::led_pin->setHold(true);
+    gpio_deep_sleep_hold_en();
+}
+inline void disableHold() {
+    global::external_led_pin->setHold(false);
+    global::led_pin->setHold(false);
+    gpio_deep_sleep_hold_dis();
 }
 
 }  // namespace global

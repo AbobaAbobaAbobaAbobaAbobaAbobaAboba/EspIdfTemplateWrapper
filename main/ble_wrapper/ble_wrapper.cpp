@@ -1,17 +1,17 @@
 #include "ble_wrapper.hpp"
 #include "../common/global.hpp"
 BluetoothWrapper::BluetoothWrapper() {
-    if (instance != nullptr) {
+    if (instance_ != nullptr) {
         throw std::runtime_error("An instance of BluetoothWrapper already exists!");
     }
-    instance = this;
+    instance_ = this;
 }
 
 BluetoothWrapper::~BluetoothWrapper() {
-    if (instance) {
+    if (instance_) {
         nimble_port_freertos_deinit();
         nimble_port_deinit();
-        instance = nullptr;
+        instance_ = nullptr;
     }
 }
 
@@ -50,7 +50,7 @@ void BluetoothWrapper::advertise(void) {
     struct ble_gap_adv_params adv_params;
     struct ble_hs_adv_fields fields;
 #if CONFIG_BT_NIMBLE_GAP_SERVICE
-    const char* name;
+    const char* name = "KGSN";
 #endif
 
     memset(&fields, 0, sizeof(fields));
@@ -60,15 +60,15 @@ void BluetoothWrapper::advertise(void) {
     fields.tx_pwr_lvl = BLE_HS_ADV_TX_PWR_LVL_AUTO;
 
 #if CONFIG_BT_NIMBLE_GAP_SERVICE
-    name = ble_svc_gap_device_name();
+
     fields.name = (uint8_t*)name;
     fields.name_len = strlen(name);
     fields.name_is_complete = 1;
 #endif
 
-    fields.uuids16 = (ble_uuid16_t[]){BLE_UUID16_INIT(GATT_SVR_SVC_ALERT_UUID)};
-    fields.num_uuids16 = 1;
-    fields.uuids16_is_complete = 1;
+    fields.uuids128 = instance_->services_.uuids_.data();
+    fields.num_uuids128 = 1;
+    fields.uuids128_is_complete = 1;
 
     if (ble_gap_adv_set_fields(&fields) != 0) {
         throw std::runtime_error("Failed to set fields in adv data!");
@@ -150,16 +150,13 @@ int BluetoothWrapper::onGapEvent(struct ble_gap_event* event, void* arg) {
                 if (ble_gap_conn_find(event->connect.conn_handle, &desc) != 0) {
                     esp_log(kWarnLogConfig, TAG, "Failed to find connection");
                 } else {
-                    std::lock_guard<std::mutex> guard(instance->mutex_);
-                    instance->clients_.insert(event->connect.conn_handle);
+                    std::lock_guard<std::mutex> guard(instance_->mutex_);
+                    instance_->clients_.insert(event->connect.conn_handle);
                 }
                 printConnectionInfo(&desc);
             }
 
-            if (event->connect.status != 0) {
-                advertise();
-            }
-
+            advertise();
             return 0;
         case BLE_GAP_EVENT_DISCONNECT:
             esp_log(
@@ -169,8 +166,8 @@ int BluetoothWrapper::onGapEvent(struct ble_gap_event* event, void* arg) {
               event->disconnect.reason);
             printConnectionInfo(&event->disconnect.conn);
             {
-                std::lock_guard<std::mutex> guard(instance->mutex_);
-                instance->clients_.erase(event->connect.conn_handle);
+                std::lock_guard<std::mutex> guard(instance_->mutex_);
+                instance_->clients_.erase(event->connect.conn_handle);
             }
             advertise();
             return 0;

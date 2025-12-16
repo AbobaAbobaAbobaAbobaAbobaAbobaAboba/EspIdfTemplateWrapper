@@ -16,7 +16,13 @@ class GpioBasicWrapper : public GpioBase {
 
     esp_err_t write(int level);
     int read();
-
+    inline void setHold(bool state) {
+        if (state) {
+            gpio_hold_en(pin_);
+        } else {
+            gpio_hold_dis(pin_);
+        }
+    }
     [[nodiscard]] bool registerIsr(const std::function<void(int)>& cb) {
         if (isr_extension_.has_value()) {
             throw std::runtime_error("ISR is already registered for this pin");

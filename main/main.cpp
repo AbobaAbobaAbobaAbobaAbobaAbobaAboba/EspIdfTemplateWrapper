@@ -46,8 +46,9 @@ void true_main() {
 
         esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_GPIO);
         initializeSystem();
-        global::initGlobalPins();
 
+        global::initGlobalPins();
+        global::disableHold();
         verifySystem();
 
         initBlink();
@@ -65,9 +66,7 @@ void true_main() {
         skf_prext_GenericCommandMsg msg;
         msg.cmd_id = skf_printer_GenericCommandParachute;
         msg.parachute.activate = 1;
-        wrapper.addHoldEvent(5'00'000, []() {
-            esp_log(kInfoLogConfig, "BUTTON", "long press detected!");
-        });
+
         wrapper.addHoldEvent(5'000'000, [&]() {
             esp_log(kInfoLogConfig, "BUTTON", "sleep press detected!");
             global::blinkExternalLED(300);
@@ -80,11 +79,11 @@ void true_main() {
             global::blinkExternalLED(300);
             global::blinkExternalLED(300);
             global::blinkExternalLED(300);
+            global::resetAndHoldPins();
+            gpio_deep_sleep_hold_en();
             core.sleep(wrapper.getPin());
         });
 
-        wrapper.setShortPressCallback(
-          []() { esp_log(kInfoLogConfig, "BUTTON", "Short press detected!"); });
         if (res != ESP_OK) {
             throw std::runtime_error("Failed to lock UDP wrapper");
         }
@@ -143,6 +142,21 @@ void true_main() {
               return res;
           });
         ble_wrapper.start();
+
+        wrapper.setShortPressCallback([&]() {
+            esp_log(kInfoLogConfig, "BUTTON", "short press detected!");
+            std::vector<uint8_t> res;
+            res.resize(1);
+            res[0] = 1;
+
+            ble_wrapper.notifyAll(0, 0, res.data(), res.size());
+
+            global::blinkExternalLED(75);
+            global::blinkExternalLED(75);
+            global::blinkExternalLED(75);
+            global::blinkExternalLED(75);
+        });
+
         while (true) {
             static int i = 0;
             ++i;
@@ -156,20 +170,8 @@ void true_main() {
             //       "Failed to send UDP packet %d",
             //       res);
             // }
-            global::blinkLED(50);
-            global::blinkLED(50);
-
-            static int aboba = 0;
-            std::vector<uint8_t> res;
-            res.resize(1);
-            res[0] = aboba;
-            ble_wrapper.notifyAll(0, 0, res.data(), res.size());
-            ++aboba;
-            // global::blinkLED(50);
-            // global::blinkLED(50);
-            // global::blinkLED(50);
-            // global::blinkLED(50);
-            // print_rssi();
+            global::blinkExternalLED(50);
+            global::blinkExternalLED(50);
         };
 #ifdef ENABLE_SAFENET
     } catch (const std::exception& e) {
