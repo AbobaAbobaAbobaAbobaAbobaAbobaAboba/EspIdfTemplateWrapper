@@ -46,7 +46,7 @@ class GpioBasicWrapper : public GpioBase {
     ~GpioBasicWrapper();
 
   private:
-    static void IRAM_ATTR isr_handler(void* arg) {
+    static void isr_handler(void* arg) {
         GpioBasicWrapper* gpio = static_cast<GpioBasicWrapper*>(arg);
         if (gpio->isr_extension_.has_value()) {
             if (gpio->isr_extension_->cb_) {

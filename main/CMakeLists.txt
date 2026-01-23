@@ -1,5 +1,6 @@
 set(MY_ESP_COMPONENTS
     esp_http_server
+    esp_driver_uart
     driver
     cjson
     esp_netif
@@ -12,6 +13,7 @@ set(MY_ESP_COMPONENTS
     littlefs
     esp_timer
     esp_driver_dac
+
     bt
 )
 
@@ -31,7 +33,8 @@ idf_component_register(SRCS "main.cpp"
     "config_wrapper/config_wrapper.cpp"
     "socket_wrappers/udp_wrapper/udp_wrapper.cpp"
     "hardware/button_wrapper/button_wrapper.cpp"
-    "ble_wrapper/ble_wrapper.cpp"
+    "uart_wrapper/uart_wrapper.cpp"
+
      REQUIRES ${MY_ESP_COMPONENTS}
 INCLUDE_DIRS ".")
 

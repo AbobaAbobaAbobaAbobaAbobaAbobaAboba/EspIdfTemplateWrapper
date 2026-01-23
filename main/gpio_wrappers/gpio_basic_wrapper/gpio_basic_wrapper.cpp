@@ -27,7 +27,6 @@ GpioBasicWrapper::createPin(gpio_num_t pin, gpio_mode_t mode, PullMode pull_mode
 #endif
     }
     esp_log(kErrorLogConfig, GpioBasicWrapper::TAG, "Creating new BASIC pin %d", pin);
-
     std::lock_guard<std::recursive_mutex> lock(GpioBase::mutex_);
     auto ptr_stump =
       std::shared_ptr<GpioBase>(new GpioBasicWrapper(pin, mode, pull_mode));
@@ -89,7 +88,6 @@ void GpioBasicWrapper::configurePin(gpio_mode_t mode, PullMode pull_mode) {
         throw std::invalid_argument("Invalid GPIO pin: " + std::to_string(pin_));
     }
 #endif
-
     // Configure GPIO
     io_conf_ = {};
     if (mode == GPIO_MODE_INPUT) {
@@ -115,7 +113,6 @@ void GpioBasicWrapper::configurePin(gpio_mode_t mode, PullMode pull_mode) {
             io_conf_.pull_down_en = GPIO_PULLDOWN_ENABLE;
             break;
     }
-
     esp_err_t ret = gpio_config(&io_conf_);
 #ifdef ENABLE_SAFENET
     if (ret != ESP_OK) {

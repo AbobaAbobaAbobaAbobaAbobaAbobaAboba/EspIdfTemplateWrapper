@@ -21,11 +21,7 @@ class Core {
     Core& operator=(const Core& other) = delete;
     Core(Core&& other) = delete;
     Core& operator=(Core&& other) = delete;
-    void sleep(gpio_num_t pin) {
-        wifi_module_.reset();
-        esp_deep_sleep_enable_gpio_wakeup(1ULL << pin, ESP_GPIO_WAKEUP_GPIO_HIGH);
-        esp_deep_sleep_start();
-    }
+    void sleep(gpio_num_t pin) { wifi_module_.reset(); }
 
   private:
     void init();
