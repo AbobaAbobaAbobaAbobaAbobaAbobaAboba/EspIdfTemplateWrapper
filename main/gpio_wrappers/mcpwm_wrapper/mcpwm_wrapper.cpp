@@ -29,8 +29,8 @@ std::shared_ptr<McpwmWrapper> McpwmWrapper::createPin(
     return std::static_pointer_cast<McpwmWrapper>(ptr_stump);
 }
 
-esp_err_t McpwmWrapper::stop(auto stop_mode) {
-    esp_err_t ret = mcpwm_timer_start_stop(timer_, stop_mode);
+esp_err_t McpwmWrapper::stop(mcpwm_timer_start_stop_cmd_t stop_mode) {
+    esp_err_t ret = mcpwm_timer_start_stop(timer_->handle(), stop_mode);
 
 #ifdef ENABLE_SAFENET
     if (ret != ESP_OK) {

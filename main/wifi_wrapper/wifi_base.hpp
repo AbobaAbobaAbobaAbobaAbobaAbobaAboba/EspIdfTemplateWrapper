@@ -44,9 +44,7 @@ class Base {
             deinit();
         }
     }
-    inline static std::string getCurrentIp() {
-        return ip_address;
-    }
+    inline static std::string getCurrentIp() { return ip_address; }
     virtual bool prepareWifi() = 0;
     virtual void init() = 0;
     inline static void deinit() {
@@ -58,6 +56,7 @@ class Base {
         ip_address = "";
         instance_ = nullptr;
         auto res = esp_wifi_stop();
+        res = esp_wifi_deinit();
         if (netif_) {
             esp_netif_destroy(netif_);
         }
@@ -68,9 +67,7 @@ class Base {
         }
 #endif
     }
-    inline static bool isInit() {
-        return instance_ != nullptr;
-    }
+    inline static bool isInit() { return instance_ != nullptr; }
 
     inline static void setTxPower(int8_t power) {
         if (power < 20 || power > 78) {
@@ -97,9 +94,7 @@ class Base {
         }
     }
 
-    Mode getCurrentMode() {
-        return mode_;
-    }
+    Mode getCurrentMode() { return mode_; }
 
   protected:
     inline static std::string ip_address = "";

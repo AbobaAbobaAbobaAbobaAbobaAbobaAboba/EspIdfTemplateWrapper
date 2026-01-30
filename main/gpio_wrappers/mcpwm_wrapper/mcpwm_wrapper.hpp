@@ -7,9 +7,12 @@
 #include "driver/mcpwm_gen.h"
 #include "driver/mcpwm_oper.h"
 #include "driver/mcpwm_timer.h"
+#include "driver/mcpwm_types.h"
+#include "soc/soc_caps.h"
 #include <atomic>
 namespace GPIO {
-
+#define SOC_MCPWM_TIMERS_PER_GROUP 3
+#define SOC_MCPWM_GROUPS           2
 class McpwmTimer {
   public:
     McpwmTimer(int group_id, uint32_t period_ticks, uint32_t resolution) {
@@ -131,7 +134,8 @@ class McpwmWrapper : public GpioBase {
         return ret;
     }
 
-    esp_err_t stop(auto stop_mode = MCPWM_TIMER_START_STOP_EMPTY);
+    esp_err_t stop(
+      mcpwm_timer_start_stop_cmd_t stop_mode = MCPWM_TIMER_START_STOP_EMPTY);
 
     [[nodiscard]] bool isConfigured() const;
 

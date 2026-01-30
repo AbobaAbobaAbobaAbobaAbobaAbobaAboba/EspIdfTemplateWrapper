@@ -13,7 +13,6 @@ set(MY_ESP_COMPONENTS
     littlefs
     esp_timer
     esp_driver_dac
-
     bt
 )
 
@@ -21,7 +20,7 @@ idf_component_register(SRCS "main.cpp"
     "wifi_wrapper/station_wrapper.cpp"
     "wifi_wrapper/ap_wrapper.cpp"
     "http_wrapper/http_server_wrapper.cpp"
-   "littlefs_wrapper/littlefs_wrapper.cpp"
+    "littlefs_wrapper/littlefs_wrapper.cpp"
     "json_wrapper/json_wrapper.cpp"
     "gpio_wrappers/gpio_basic_wrapper/gpio_basic_wrapper.cpp"
     "websocket_handler/websocket_handler.cpp"
@@ -34,11 +33,12 @@ idf_component_register(SRCS "main.cpp"
     "socket_wrappers/udp_wrapper/udp_wrapper.cpp"
     "hardware/button_wrapper/button_wrapper.cpp"
     "uart_wrapper/uart_wrapper.cpp"
-
+    "gpio_wrappers/mcpwm_wrapper/mcpwm_wrapper.cpp"
      REQUIRES ${MY_ESP_COMPONENTS}
 INCLUDE_DIRS ".")
 
 
 target_compile_definitions(${COMPONENT_LIB} PUBLIC ENABLE_SAFENET)
 target_compile_definitions(${COMPONENT_LIB} PUBLIC ENABLE_LOGS)
+target_compile_definitions(${COMPONENT_LIB} PUBLIC ENABLE_MCPWM)
 littlefs_create_partition_image(littlefs ../littlefs FLASH_IN_PROJECT)
