@@ -52,20 +52,6 @@ enum class ConnectionState : uint8_t {
 
 class StationWrapper;
 };  // namespace Wifi
-namespace RotationController {
-enum class Direction : uint8_t {
-    CLOCKWISE = 0,
-    COUNTER_CLOCKWISE
-};
-enum class StepMode : uint8_t {
-    STEP_FULL = 0,
-    STEP_1_2,
-    STEP_1_4,
-    STEP_1_8,
-    STEP_1_16,
-    STEP_1_32,
-};
-};  // namespace RotationController
 struct TimeConv {
     // Milliseconds to microseconds
     static constexpr uint64_t ms(uint64_t ms) noexcept { return ms * 1'000ULL; }

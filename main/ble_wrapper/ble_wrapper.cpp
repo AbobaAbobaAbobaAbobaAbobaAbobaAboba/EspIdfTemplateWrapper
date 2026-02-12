@@ -458,7 +458,6 @@ int BluetoothWrapper::gattAccess(
         default:
             break;
     }
-    esp_log(kWarnLogConfig, "ABOBA", "aboba %d", ctxt->op);
     throw std::runtime_error("Forbidden behaviour");
     return BLE_ATT_ERR_UNLIKELY;
 }
@@ -498,11 +497,12 @@ void BluetoothWrapper::ServicesDescriptor::set(
         throw std::runtime_error("Service index out of bounds");
     }
     uuids_[index] = uuid;
-    services_[index] = {/*** Service ***/
-                        .type = type,
-                        .uuid = &uuids_[index].u,
-                        .includes = nullptr,
-                        .characteristics = &char_wrappers_[index].get()};
+    services_[index] = {
+      /*** Service ***/
+      .type = type,
+      .uuid = &uuids_[index].u,
+      .includes = nullptr,
+      .characteristics = &char_wrappers_[index].get()};
 }
 
 void BluetoothWrapper::ServicesDescriptor::reset(size_t index) {

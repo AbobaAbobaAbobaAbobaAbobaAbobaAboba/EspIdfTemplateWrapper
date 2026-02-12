@@ -13,89 +13,21 @@ void RotationController::setDir(Direction dir) {
     }
 };
 
-void RotationController::startRotation() {
-    enable_pin_->write(1);
-    // motor_pin_->write(kTicksWrite);
-}
-
-void RotationController::stopRotation() {
-    enable_pin_->write(0);
-    // motor_pin_->stop(MCPWM_TIMER_START_STOP_EMPTY);
-}
-
-void RotationController::setStepMode(StepMode mode) {
-    switch (mode) {
-        case StepMode::STEP_FULL:
-            m0_pin_->write(0);
-            m1_pin_->write(0);
-            m2_pin_->write(0);
-            break;
-        case StepMode::STEP_1_2:
-            m0_pin_->write(1);
-            m1_pin_->write(0);
-            m2_pin_->write(0);
-            break;
-        case StepMode::STEP_1_4:
-            m0_pin_->write(0);
-            m1_pin_->write(1);
-            m2_pin_->write(0);
-            break;
-        case StepMode::STEP_1_8:
-            m0_pin_->write(1);
-            m1_pin_->write(1);
-            m2_pin_->write(0);
-            break;
-        case StepMode::STEP_1_16:
-            m0_pin_->write(0);
-            m1_pin_->write(0);
-            m2_pin_->write(1);
-            break;
-        case StepMode::STEP_1_32:
-            m0_pin_->write(1);
-            m1_pin_->write(1);
-            m2_pin_->write(1);
-            break;
-        default: {
-            throw std::runtime_error("Unknown step mode!");
-        }
-    }
-}
-
 void RotationController::init() {
-    motor_pin_ = GPIO::GpioBasicWrapper::createPin(
-      GPIO_NUM_25,
-      GPIO_MODE_OUTPUT,
-      GPIO::PullMode::PULL_DOWN);
-    motor_pin_->write(0);
+    timer1_ = GPIO::McpwmTimer::createTimer(0, kTicksTimer, kResolution);
+    timer2_ = GPIO::McpwmTimer::createTimer(0, kTicksTimer, kResolution);
+    motor_pin_1 = GPIO::McpwmWrapper::createPin(GPIO_NUM_4, timer1_);
+    motor_pin_2 = GPIO::McpwmWrapper::createPin(GPIO_NUM_5, timer2_);
 
     dir_pin_ = GPIO::GpioBasicWrapper::createPin(
-      GPIO_NUM_32,
+      GPIO_NUM_19,
       GPIO_MODE_OUTPUT,
       GPIO::PullMode::PULL_DOWN);
     dir_pin_->write(0);
 
     enable_pin_ = GPIO::GpioBasicWrapper::createPin(
-      GPIO_NUM_33,
-      GPIO_MODE_OUTPUT,
-      GPIO::PullMode::PULL_UP);
-    enable_pin_->write(1);
-
-    m0_pin_ = GPIO::GpioBasicWrapper::createPin(
-      GPIO_NUM_5,
-      GPIO_MODE_OUTPUT,
-      GPIO::PullMode::PULL_DOWN);
-    m0_pin_->write(0);
-
-    m1_pin_ = GPIO::GpioBasicWrapper::createPin(
-      GPIO_NUM_17,
-      GPIO_MODE_OUTPUT,
-      GPIO::PullMode::PULL_DOWN);
-    m1_pin_->write(0);
-
-    m2_pin_ = GPIO::GpioBasicWrapper::createPin(
       GPIO_NUM_18,
       GPIO_MODE_OUTPUT,
       GPIO::PullMode::PULL_DOWN);
-    m2_pin_->write(0);
-    setStepMode(StepMode::STEP_FULL);
+    enable_pin_->write(1);
 }

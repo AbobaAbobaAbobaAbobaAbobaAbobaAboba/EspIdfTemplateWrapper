@@ -29,8 +29,8 @@ std::shared_ptr<McpwmWrapper> McpwmWrapper::createPin(
     return std::static_pointer_cast<McpwmWrapper>(ptr_stump);
 }
 
-esp_err_t McpwmWrapper::stop(auto stop_mode) {
-    esp_err_t ret = mcpwm_timer_start_stop(timer_, stop_mode);
+esp_err_t McpwmWrapper::stop(mcpwm_timer_start_stop_cmd_t stop_mode) {
+    esp_err_t ret = mcpwm_timer_start_stop(timer_->handle(), stop_mode);
 
 #ifdef ENABLE_SAFENET
     if (ret != ESP_OK) {
@@ -75,9 +75,9 @@ void McpwmWrapper::configurePin() {
         throw std::invalid_argument("Invalid GPIO pin: " + std::to_string(pin_));
     }
 #endif
-
+    std::cout << "aboba creating pin" << std::endl;
     oper_cfg_ = {
-      .group_id = 0,
+      .group_id = static_cast<int>(timer_->getGroupId()),
       .intr_priority = 0,
       .flags =
         {.update_gen_action_on_tez = 0,
@@ -187,6 +187,7 @@ std::shared_ptr<McpwmTimer>
 McpwmTimer::createTimer(uint32_t group_id, uint32_t period_ticks, uint32_t resolution) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
+        esp_log(kErrorLogConfig, TAG, "Size %d", size(group_id));
         if (size(group_id) >= SOC_MCPWM_TIMERS_PER_GROUP) {
 #ifdef ENABLE_SAFENET
             throw std::runtime_error("Timer group has reached its maximum size");
@@ -207,6 +208,7 @@ McpwmTimer::createTimer(uint32_t group_id, uint32_t period_ticks, uint32_t resol
         for (size_t i = 0; i < SOC_MCPWM_TIMERS_PER_GROUP; ++i) {
             if (timers_[group_id][i].expired()) {
                 timers_[group_id][i] = ptr_stump;
+                break;
             }
         }
 

@@ -1,5 +1,6 @@
 #include "core.hpp"
 #include "../scheduler/scheduler.hpp"
+#include "soc/soc_caps.h"
 Core::Core() : config_wrapper_("/settings.ini") {
     if (instance_ != nullptr) {
         throw std::runtime_error("Core instance already exists!");
@@ -107,8 +108,13 @@ void Core::applyPacket(
   std::shared_ptr<WSPacket::PacketBase> packet,
   [[maybe_unused]] int sockfd) {
     static_assert(
-      2 == static_cast<int>(WSPacket::PacketType::COUNT),
+      5 == static_cast<int>(WSPacket::PacketType::COUNT),
       "PacketType::COUNT mismatch. Check if enough Packet structs exist");
+    esp_log(
+      kErrorLogConfig,
+      "CORE",
+      "Received packet: %d",
+      static_cast<int>(packet->packet_type));
     switch (static_cast<WSPacket::PacketType>(packet->packet_type)) {
         case WSPacket::PacketType::LED: {
             WSPacket::PacketLED* led_packet =
@@ -120,6 +126,24 @@ void Core::applyPacket(
             WSPacket::PacketCredentials* led_packet =
               static_cast<WSPacket::PacketCredentials*>(packet.get());
             instance_->applyCredentials(led_packet, sockfd);
+            break;
+        }
+        case WSPacket::PacketType::ZOOM: {
+            WSPacket::PacketZoom* zoom_packet =
+              static_cast<WSPacket::PacketZoom*>(packet.get());
+            instance_->applyZoom(zoom_packet, sockfd);
+            break;
+        }
+        case WSPacket::PacketType::FOCUS: {
+            WSPacket::PacketFocus* focus_packet =
+              static_cast<WSPacket::PacketFocus*>(packet.get());
+            instance_->applyFocus(focus_packet, sockfd);
+            break;
+        }
+        case WSPacket::PacketType::CHANGE_DIRECTION: {
+            WSPacket::PacketChangeDirection* direction_packet =
+              static_cast<WSPacket::PacketChangeDirection*>(packet.get());
+            instance_->applyChangeDirection(direction_packet, sockfd);
             break;
         }
         default:

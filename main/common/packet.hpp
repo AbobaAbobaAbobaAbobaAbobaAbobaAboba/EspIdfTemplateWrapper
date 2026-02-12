@@ -12,6 +12,9 @@ namespace WSPacket {
 enum class PacketType : int {
     LED = 0,
     CREDENTIALS,
+    ZOOM,
+    FOCUS,
+    CHANGE_DIRECTION,
     COUNT
 };
 enum class RespType : int {
@@ -53,8 +56,25 @@ struct PacketCredentials : public PacketBase {
     std::string password;
 };
 
+struct PacketZoom : public PacketBase {
+    PacketZoom(bool _state) : PacketBase{PacketType::ZOOM}, state{_state} {}
+    bool state;
+};
+
+struct PacketFocus : public PacketBase {
+    PacketFocus(bool _state) : PacketBase{PacketType::FOCUS}, state{_state} {}
+    bool state;
+};
+
+struct PacketChangeDirection : public PacketBase {
+    PacketChangeDirection(bool _dir)
+        : PacketBase{PacketType::CHANGE_DIRECTION},
+          state{_dir} {}
+    bool state;
+};
+
 static_assert(
-  2 == static_cast<int>(PacketType::COUNT),
+  5 == static_cast<int>(PacketType::COUNT),
   "PacketType::COUNT mismatch. Check if enough Packet structs exist");
 
 // ========
@@ -90,8 +110,33 @@ struct PacketRespCredentials : public PacketRespBase {
     }
 };
 
+struct PacketRespZoom : public PacketRespBase {
+    PacketRespZoom(RespType _resp) : PacketRespBase{PacketType::ZOOM, _resp} {}
+
+    virtual JsonWrapper generateJson() const override {
+        return PacketRespBase::generateJson();
+    }
+};
+
+struct PacketRespFocus : public PacketRespBase {
+    PacketRespFocus(RespType _resp) : PacketRespBase{PacketType::FOCUS, _resp} {}
+
+    virtual JsonWrapper generateJson() const override {
+        return PacketRespBase::generateJson();
+    }
+};
+
+struct PacketRespChangeDirection : public PacketRespBase {
+    PacketRespChangeDirection(RespType _resp)
+        : PacketRespBase{PacketType::CHANGE_DIRECTION, _resp} {}
+
+    virtual JsonWrapper generateJson() const override {
+        return PacketRespBase::generateJson();
+    }
+};
+
 static_assert(
-  2 == static_cast<int>(PacketType::COUNT),
+  5 == static_cast<int>(PacketType::COUNT),
   "PacketType::COUNT mismatch. Check if enough RESP structs exist");
 
 };  // namespace WSPacket

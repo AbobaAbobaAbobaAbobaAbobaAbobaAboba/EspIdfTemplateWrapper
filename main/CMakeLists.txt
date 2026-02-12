@@ -24,6 +24,7 @@ idf_component_register(SRCS "main.cpp"
    "littlefs_wrapper/littlefs_wrapper.cpp"
     "json_wrapper/json_wrapper.cpp"
     "gpio_wrappers/gpio_basic_wrapper/gpio_basic_wrapper.cpp"
+    "gpio_wrappers/mcpwm_wrapper/mcpwm_wrapper.cpp"
     "websocket_handler/websocket_handler.cpp"
     "core/core.cpp"
     "common/common.cpp"
@@ -34,6 +35,7 @@ idf_component_register(SRCS "main.cpp"
     "socket_wrappers/udp_wrapper/udp_wrapper.cpp"
     "hardware/button_wrapper/button_wrapper.cpp"
     "uart_wrapper/uart_wrapper.cpp"
+    "rotation_controller/rotation_controller.cpp"
 
      REQUIRES ${MY_ESP_COMPONENTS}
 INCLUDE_DIRS ".")
@@ -41,4 +43,7 @@ INCLUDE_DIRS ".")
 
 target_compile_definitions(${COMPONENT_LIB} PUBLIC ENABLE_SAFENET)
 target_compile_definitions(${COMPONENT_LIB} PUBLIC ENABLE_LOGS)
+target_compile_definitions(${COMPONENT_LIB} PUBLIC ENABLE_MCPWM)
+target_compile_definitions(${COMPONENT_LIB} PUBLIC ENABLE_ROTATION_CONTROLLER)
+
 littlefs_create_partition_image(littlefs ../littlefs FLASH_IN_PROJECT)

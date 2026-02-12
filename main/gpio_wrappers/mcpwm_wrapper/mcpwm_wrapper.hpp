@@ -1,12 +1,17 @@
-#ifdef ENABLE_MCPWM
+
+
 #ifndef MCPWM_WRAPPER_HPP
 #define MCPWM_WRAPPER_HPP
+
+#define SOC_MCPWM_TIMERS_PER_GROUP 3
+#define SOC_MCPWM_GROUPS           2
 #include "../gpio_common.hpp"
 #include "driver/mcpwm_cap.h"
 #include "driver/mcpwm_cmpr.h"
 #include "driver/mcpwm_gen.h"
 #include "driver/mcpwm_oper.h"
 #include "driver/mcpwm_timer.h"
+#include "sdkconfig.h"
 #include <atomic>
 namespace GPIO {
 
@@ -118,20 +123,18 @@ class McpwmWrapper : public GpioBase {
               + esp_err_to_name(ret));
         }
 #endif
-
         ret = mcpwm_timer_start_stop(timer_->handle(), MCPWM_TIMER_START_NO_STOP);
-
 #ifdef ENABLE_SAFENET
         if (ret != ESP_OK) {
             throw std::runtime_error(
               "Failed to start timer: " + std::string(esp_err_to_name(ret)));
         }
 #endif
-
         return ret;
     }
 
-    esp_err_t stop(auto stop_mode = MCPWM_TIMER_START_STOP_EMPTY);
+    esp_err_t stop(
+      mcpwm_timer_start_stop_cmd_t stop_mode = MCPWM_TIMER_START_STOP_EMPTY);
 
     [[nodiscard]] bool isConfigured() const;
 
@@ -165,4 +168,3 @@ class McpwmWrapper : public GpioBase {
 };
 };  // namespace GPIO
 #endif
-#endif  // ENABLE_MCPWM

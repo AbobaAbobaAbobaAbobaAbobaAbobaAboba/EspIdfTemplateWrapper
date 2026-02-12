@@ -36,18 +36,6 @@ void true_main() {
 
         initBlink();
 
-        uart_config_t uart_config = {
-          .baud_rate = 115200,                    // Common baud rate
-          .data_bits = UART_DATA_8_BITS,          // 8 data bits
-          .parity = UART_PARITY_DISABLE,          // No parity
-          .stop_bits = UART_STOP_BITS_1,          // 1 stop bit
-          .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,  // No hardware flow control
-          .rx_flow_ctrl_thresh = 0,               // Not used with flow control
-          .source_clk = UART_SCLK_DEFAULT,        // Default clock source
-          .flags = {0, 0}                         // No signal inversions or other
-        };
-        UartWrapper uart_wrapper(UART_NUM_1, 17, 16, uart_config);
-
         Core core;
 
         // Core core({"AbobaNet", "Aboba_425784_Net"});
@@ -70,7 +58,7 @@ void true_main() {
         if (res != ESP_OK) {
             throw std::runtime_error("Failed to lock UDP wrapper");
         }
-
+        // core.aboba();
         while (true) {
             static int i = 0;
             ++i;
