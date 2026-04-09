@@ -38,27 +38,9 @@ void true_main() {
 
         Core core;
 
-        // Core core({"AbobaNet", "Aboba_425784_Net"});
         time_t now = time(nullptr);
         std::cout << "CORE START TIME: " << ctime(&now) << std::endl;
-        UdpWrapper udp_wrapper;
-        auto res = udp_wrapper.lock();
-        std::string data = "Hello ABOBA !";
-        ButtonWrapper wrapper(GPIO_NUM_0);
 
-        wrapper.addHoldEvent(5'000'000, [&]() {
-            esp_log(kInfoLogConfig, "BUTTON", "sleep press detected!");
-            global::blinkLED(300);
-            global::blinkLED(300);
-            global::blinkLED(300);
-            global::blinkLED(300);
-            global::blinkLED(300);
-        });
-
-        if (res != ESP_OK) {
-            throw std::runtime_error("Failed to lock UDP wrapper");
-        }
-        // core.aboba();
         while (true) {
             static int i = 0;
             ++i;
@@ -66,7 +48,7 @@ void true_main() {
 
             global::blinkLED(50);
             global::blinkLED(50);
-            esp_log(kInfoLogConfig, "MAIN", "I am alive!");
+            esp_log(kInfoLogConfig, "MAIN", "I am alive abobicus!");
         };
 #ifdef ENABLE_SAFENET
     } catch (const std::exception& e) {

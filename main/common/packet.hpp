@@ -1,7 +1,6 @@
 #ifndef PACKET_HPP
 #define PACKET_HPP
 #include "../json_wrapper/json_wrapper.hpp"
-#include "../rotation_controller/rotation_controller.hpp"
 #include <esp_http_server.h>
 #include <limits>
 #include <memory>
@@ -12,15 +11,16 @@ namespace WSPacket {
 enum class PacketType : int {
     LED = 0,
     CREDENTIALS,
-    ZOOM,
-    FOCUS,
-    CHANGE_DIRECTION,
+    UV_IS_ACTIVE,
+    UV_SET_JOB,
     COUNT
 };
 enum class RespType : int {
     OK = 0,
     ERROR = 1,
     BUSY = 2,
+    WARNING,  // task was completed successful but with some issues (e.g. a pending UV
+              // job was force executed to make way for the new one)
     COUNT = std::numeric_limits<int>::max()
 };
 struct PacketDescriptor {
@@ -55,26 +55,23 @@ struct PacketCredentials : public PacketBase {
     std::string ssid;
     std::string password;
 };
-
-struct PacketZoom : public PacketBase {
-    PacketZoom(bool _state) : PacketBase{PacketType::ZOOM}, state{_state} {}
-    bool state;
+// UV_IS_ACTIVE,
+// UV_SET_JOB,
+struct PacketUvIsActive : public PacketBase {
+    PacketUvIsActive() : PacketBase{PacketType::UV_IS_ACTIVE} {}
 };
 
-struct PacketFocus : public PacketBase {
-    PacketFocus(bool _state) : PacketBase{PacketType::FOCUS}, state{_state} {}
-    bool state;
-};
-
-struct PacketChangeDirection : public PacketBase {
-    PacketChangeDirection(bool _dir)
-        : PacketBase{PacketType::CHANGE_DIRECTION},
-          state{_dir} {}
+struct PacketUvSetJob : public PacketBase {
+    PacketUvSetJob(double _duration, bool _state)
+        : PacketBase{PacketType::UV_SET_JOB},
+          duration(_duration),
+          state(_state) {}
+    double duration;
     bool state;
 };
 
 static_assert(
-  5 == static_cast<int>(PacketType::COUNT),
+  4 == static_cast<int>(PacketType::COUNT),
   "PacketType::COUNT mismatch. Check if enough Packet structs exist");
 
 // ========
@@ -110,25 +107,25 @@ struct PacketRespCredentials : public PacketRespBase {
     }
 };
 
-struct PacketRespZoom : public PacketRespBase {
-    PacketRespZoom(RespType _resp) : PacketRespBase{PacketType::ZOOM, _resp} {}
+struct PacketRespUvIsActive : public PacketRespBase {
+    PacketRespUvIsActive(double _remaining_time, bool _state, RespType _resp)
+        : PacketRespBase{PacketType::UV_IS_ACTIVE, _resp},
+          remaining_time(_remaining_time),
+          state(_state) {}
 
     virtual JsonWrapper generateJson() const override {
-        return PacketRespBase::generateJson();
+        auto base = PacketRespBase::generateJson();
+        base.addFloat("remaining_time", remaining_time);
+        base.addBool("state", state);
+        return base;
     }
+    double remaining_time;
+    bool state;
 };
 
-struct PacketRespFocus : public PacketRespBase {
-    PacketRespFocus(RespType _resp) : PacketRespBase{PacketType::FOCUS, _resp} {}
-
-    virtual JsonWrapper generateJson() const override {
-        return PacketRespBase::generateJson();
-    }
-};
-
-struct PacketRespChangeDirection : public PacketRespBase {
-    PacketRespChangeDirection(RespType _resp)
-        : PacketRespBase{PacketType::CHANGE_DIRECTION, _resp} {}
+struct PacketRespUvSetJob : public PacketRespBase {
+    PacketRespUvSetJob(RespType _resp)
+        : PacketRespBase{PacketType::UV_SET_JOB, _resp} {}
 
     virtual JsonWrapper generateJson() const override {
         return PacketRespBase::generateJson();
@@ -136,9 +133,8 @@ struct PacketRespChangeDirection : public PacketRespBase {
 };
 
 static_assert(
-  5 == static_cast<int>(PacketType::COUNT),
+  4 == static_cast<int>(PacketType::COUNT),
   "PacketType::COUNT mismatch. Check if enough RESP structs exist");
-
 };  // namespace WSPacket
 
 #endif

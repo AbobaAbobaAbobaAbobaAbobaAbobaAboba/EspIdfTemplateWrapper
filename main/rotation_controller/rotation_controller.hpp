@@ -4,7 +4,7 @@
 #include "../common/common.hpp"
 #include "../gpio_wrappers/gpio_basic_wrapper/gpio_basic_wrapper.hpp"
 #include "../gpio_wrappers/mcpwm_wrapper/mcpwm_wrapper.hpp"
-static constexpr uint32_t kTicksTimer = 250;
+static constexpr uint32_t kTicksTimer = 100;
 static constexpr uint32_t kTicksWrite = 50;
 static constexpr uint32_t kResolution = 1'000'000;
 class RotationController {

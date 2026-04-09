@@ -59,6 +59,11 @@ struct TimeConv {
     // Seconds to microseconds
     static constexpr uint64_t sec(uint64_t s) noexcept { return s * 1'000'000ULL; }
 
+    // Seconds (double) to microseconds
+    static constexpr uint64_t sec(double s) noexcept {
+        return static_cast<uint64_t>(s * 1'000'000.0);
+    }
+
     // Minutes to microseconds
     static constexpr uint64_t min(uint64_t min) noexcept { return min * 60'000'000ULL; }
 

@@ -111,7 +111,8 @@
     "valarray": "cpp",
     "*.inc": "cpp"
   },
-  "idf.pythonInstallPath": "/opt/esp/python_env/idf6.0_py3.12_env/bin/python",
+  "idf.pythonInstallPath": "/usr/bin/python3",
   "idf.monitorPort": "/dev/ttyUSB1",
-  "C_Cpp.errorSquiggles": "Disabled"
+  "C_Cpp.errorSquiggles": "Disabled",
+  "idf.currentSetup": "/home/kp/esp/v5.5.1/esp-idf"
 }

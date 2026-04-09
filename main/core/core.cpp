@@ -35,6 +35,11 @@ bool isTimeInBracket(
 }
 
 void Core::init() {
+    uv_pin = GPIO::GpioBasicWrapper::createPin(
+      GPIO_NUM_18,
+      GPIO_MODE_OUTPUT,
+      GPIO::PullMode::PULL_DOWN);
+
     config_wrapper_.load();
     config_wrapper_.printContents();
     wifiRestart();
@@ -93,22 +98,11 @@ bool Core::startStation() {
     return ptr->connect(ssid, password, 5);
 }
 
-void Core::blinkCrap() {
-    global::led_pin->write(true);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    global::led_pin->write(false);
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    global::led_pin->write(true);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    global::led_pin->write(false);
-    vTaskDelay(pdMS_TO_TICKS(100));
-}
 void Core::applyPacket(
   std::shared_ptr<WSPacket::PacketBase> packet,
   [[maybe_unused]] int sockfd) {
     static_assert(
-      5 == static_cast<int>(WSPacket::PacketType::COUNT),
+      4 == static_cast<int>(WSPacket::PacketType::COUNT),
       "PacketType::COUNT mismatch. Check if enough Packet structs exist");
     esp_log(
       kErrorLogConfig,
@@ -120,30 +114,28 @@ void Core::applyPacket(
             WSPacket::PacketLED* led_packet =
               static_cast<WSPacket::PacketLED*>(packet.get());
             instance_->applyLED(led_packet, sockfd);
+
             break;
         }
         case WSPacket::PacketType::CREDENTIALS: {
             WSPacket::PacketCredentials* led_packet =
               static_cast<WSPacket::PacketCredentials*>(packet.get());
             instance_->applyCredentials(led_packet, sockfd);
+
             break;
         }
-        case WSPacket::PacketType::ZOOM: {
-            WSPacket::PacketZoom* zoom_packet =
-              static_cast<WSPacket::PacketZoom*>(packet.get());
-            instance_->applyZoom(zoom_packet, sockfd);
+        case WSPacket::PacketType::UV_IS_ACTIVE: {
+            WSPacket::PacketUvIsActive* uv_is_active_packet =
+              static_cast<WSPacket::PacketUvIsActive*>(packet.get());
+            instance_->applyUvIsActive(uv_is_active_packet, sockfd);
+
             break;
         }
-        case WSPacket::PacketType::FOCUS: {
-            WSPacket::PacketFocus* focus_packet =
-              static_cast<WSPacket::PacketFocus*>(packet.get());
-            instance_->applyFocus(focus_packet, sockfd);
-            break;
-        }
-        case WSPacket::PacketType::CHANGE_DIRECTION: {
-            WSPacket::PacketChangeDirection* direction_packet =
-              static_cast<WSPacket::PacketChangeDirection*>(packet.get());
-            instance_->applyChangeDirection(direction_packet, sockfd);
+        case WSPacket::PacketType::UV_SET_JOB: {
+            WSPacket::PacketUvSetJob* uv_is_active_packet =
+              static_cast<WSPacket::PacketUvSetJob*>(packet.get());
+            instance_->applyUvSetJob(uv_is_active_packet, sockfd);
+
             break;
         }
         default:
@@ -159,10 +151,6 @@ void Core::applyPacket(
 void Core::applyLED(
   const WSPacket::PacketLED* led_packet,
   [[maybe_unused]] int sockfd) {
-    // global::led_pin->write(led_packet->state);
-    Scheduler::Scheduler::schedule(TimeConv::sec(3), true, [&]() {
-        this->blinkCrap();
-    });
     esp_log(
       kInfoLogConfig,
       "CORE",
@@ -170,5 +158,6 @@ void Core::applyLED(
       led_packet->state ? "ON" : "OFF");
     std::unique_ptr<WSPacket::PacketRespBase> packet =
       std::make_unique<WSPacket::PacketRespLED>(WSPacket::RespType::OK);
-    http_server_.sendPacket(packet.get(), sockfd);
+
+    instance_->http_server_.sendPacket(packet.get(), sockfd);
 }

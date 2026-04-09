@@ -88,25 +88,12 @@ bool HttpServerWrapper::startWebserver(void) {
 esp_err_t HttpServerWrapper::sendPacket(
   const WSPacket::PacketRespBase* packet,
   int sockfd) {
-    switch (packet->packet_type) {
-        case WSPacket::PacketType::LED: {
-            auto [frame, json] = WSPacket::constructFrame(
-              *static_cast<const WSPacket::PacketRespLED*>(packet));
+    auto [frame, json] = WSPacket::constructFrame(*packet);
 
-            std::shared_ptr<WSPacket::PacketDescriptor> descriptor =
-              std::make_shared<WSPacket::PacketDescriptor>(
-                frame,
-                server_,
-                sockfd,
-                json);
-            ws_handler_.send(descriptor);
-            return ESP_OK;
-        }
-        default: {
-            return ESP_FAIL;
-        }
-    }
-    return ESP_ERR_NOT_SUPPORTED;
+    std::shared_ptr<WSPacket::PacketDescriptor> descriptor =
+      std::make_shared<WSPacket::PacketDescriptor>(frame, server_, sockfd, json);
+    ws_handler_.send(descriptor);
+    return ESP_OK;
 }
 
 void HttpServerWrapper::invokeCallback(

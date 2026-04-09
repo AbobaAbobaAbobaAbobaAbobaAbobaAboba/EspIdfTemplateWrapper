@@ -326,6 +326,17 @@ void Scheduler::Scheduler::worker([[maybe_unused]] void* pvParameters) {
     }
 }
 
+std::optional<uint64_t> Scheduler::getRemainingTime(int id) {
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
+
+    auto it = task_map_.find(id);
+    if (it == task_map_.end()) {
+        return std::nullopt;
+    }
+
+    return it->second.getRemainingTime();
+}
+
 Task::Task() {
 }
 
@@ -396,6 +407,28 @@ esp_err_t Task::createTimer(const esp_timer_create_args_t& timer_cfg) {
 #endif
 
     return err;
+}
+
+std::optional<uint64_t> Task::getRemainingTime() const {
+    if (timer_ == nullptr || status_ != Status::PENDING) {
+        return std::nullopt;
+    }
+
+    uint64_t expiry;
+    esp_err_t err = esp_timer_get_expiry_time(timer_, &expiry);
+    if (err != ESP_OK) {
+        // Periodic timers (TIMEOUT) are not supported by the API;
+        // one-shot timers (SINGLESHOT / ALARM / SYNCED) are.
+        return std::nullopt;
+    }
+
+    int64_t now_signed = esp_timer_get_time();
+    uint64_t now = (now_signed >= 0) ? static_cast<uint64_t>(now_signed) : 0ULL;
+
+    if (now >= expiry) {
+        return 0ULL;
+    }
+    return expiry - now;
 }
 
 esp_err_t Task::startOnce(uint64_t microseconds) {

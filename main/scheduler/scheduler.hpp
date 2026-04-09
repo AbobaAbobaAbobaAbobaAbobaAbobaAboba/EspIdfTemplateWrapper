@@ -60,6 +60,8 @@ struct Task {
     esp_err_t stop();
     esp_err_t deleteTimer();
 
+    std::optional<uint64_t> getRemainingTime() const;
+
     std::string name_;
 
     std::unique_ptr<int> id_;
@@ -108,6 +110,8 @@ class Scheduler {
 
     static bool unschedule(int id);
     static bool forceExecute(int id) { return innerExecute(id); }
+
+    static std::optional<uint64_t> getRemainingTime(int id);
 
   private:
     static void handler(void* arg);

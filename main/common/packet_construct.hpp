@@ -7,7 +7,7 @@
 namespace WSPacket {
 
 inline std::tuple<httpd_ws_frame_t, std::shared_ptr<char>> constructFrame(
-  const WSPacket::PacketRespLED& packet) {
+  const WSPacket::PacketRespBase& packet) {
     httpd_ws_frame_t frame;
     memset(&frame, 0, sizeof(frame));
 

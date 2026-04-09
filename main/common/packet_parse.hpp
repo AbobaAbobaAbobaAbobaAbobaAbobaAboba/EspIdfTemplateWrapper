@@ -32,49 +32,31 @@ std::shared_ptr<PacketBase> parseCredentials(const JsonWrapper& json) {
     return packet;
 }
 
-std::shared_ptr<PacketBase> parseZoom(const JsonWrapper& json) {
+std::shared_ptr<PacketBase> parseUvIsActive(const JsonWrapper& json) {
+    std::shared_ptr<PacketBase> packet = std::make_shared<PacketUvIsActive>();
+    return packet;
+}
+
+std::shared_ptr<PacketBase> parseUvSetJob(const JsonWrapper& json) {
+    auto duration_opt = json.getBool("duration");
     auto state_opt = json.getBool("state");
 
 #ifdef ENABLE_SAFENET
+    if (duration_opt == std::nullopt) {
+        return {};
+    }
     if (state_opt == std::nullopt) {
         return {};
     }
 #endif
 
     std::shared_ptr<PacketBase> packet =
-      std::make_shared<PacketZoom>(state_opt.value());
+      std::make_shared<PacketUvSetJob>(duration_opt.value(), state_opt.value());
     return packet;
 }
 
-std::shared_ptr<PacketBase> parseFocus(const JsonWrapper& json) {
-    auto state_opt = json.getBool("state");
-
-#ifdef ENABLE_SAFENET
-    if (state_opt == std::nullopt) {
-        return {};
-    }
-#endif
-
-    std::shared_ptr<PacketBase> packet =
-      std::make_shared<PacketFocus>(state_opt.value());
-    return packet;
-}
-
-std::shared_ptr<PacketBase> parseChangeDirection(const JsonWrapper& json) {
-    auto state_opt = json.getBool("state");
-
-#ifdef ENABLE_SAFENET
-    if (state_opt == std::nullopt) {
-        return {};
-    }
-#endif
-
-    std::shared_ptr<PacketBase> packet =
-      std::make_shared<PacketChangeDirection>(state_opt.value());
-    return packet;
-}
 static_assert(
-  5 == static_cast<int>(PacketType::COUNT),
+  4 == static_cast<int>(PacketType::COUNT),
   "PacketType::COUNT mismatch. Check if enough Packet structs exist");
 ///====PARSE BASE====
 std::shared_ptr<PacketBase> parse(const JsonWrapper& json) {
@@ -88,7 +70,7 @@ std::shared_ptr<PacketBase> parse(const JsonWrapper& json) {
     auto type = static_cast<PacketType>(packet_type.value());
 
     static_assert(
-      5 == static_cast<int>(PacketType::COUNT),
+      4 == static_cast<int>(PacketType::COUNT),
       "PacketType::COUNT mismatch. Check if enough Packet structs exist");
     switch (type) {
         case PacketType::LED: {
@@ -97,15 +79,13 @@ std::shared_ptr<PacketBase> parse(const JsonWrapper& json) {
         case PacketType::CREDENTIALS: {
             return parseCredentials(json);
         }
-        case PacketType::ZOOM: {
-            return parseZoom(json);
+        case PacketType::UV_IS_ACTIVE: {
+            return parseUvIsActive(json);
         }
-        case PacketType::FOCUS: {
-            return parseFocus(json);
+        case PacketType::UV_SET_JOB: {
+            return parseUvSetJob(json);
         }
-        case PacketType::CHANGE_DIRECTION: {
-            return parseChangeDirection(json);
-        }
+
         default: {
             return {};
         }
