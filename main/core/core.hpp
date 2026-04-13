@@ -11,6 +11,8 @@
 #include <functional>
 #include <string>
 #include <type_traits>
+
+constexpr static int kMaxConnectionStationAttempts = 5;
 class Core {
   public:
     Core();
@@ -23,6 +25,11 @@ class Core {
     void sleep(gpio_num_t pin) { wifi_module_.reset(); }
 
   private:
+  void forceRestartEsp() {
+      esp_log(kWarnLogConfig, TAG, "Forcing restart...");
+      esp_wifi_stop();           // stops the WiFi stack cleanly
+      esp_restart();
+  }
     void init();
     bool wifiRestart();
     bool startAp();
@@ -45,92 +52,27 @@ class Core {
 
         config_wrapper_.save();
         config_wrapper_.load();
-
+          esp_log(kInfoLogConfig, TAG, "After load1");
         std::unique_ptr<WSPacket::PacketRespBase> packet_resp =
           std::make_unique<WSPacket::PacketRespCredentials>(WSPacket::RespType::OK);
-
-        http_server_.sendPacket(packet_resp.get(), sockfd);
-
+          esp_log(kInfoLogConfig, TAG, "After load2");
+        http_server_->sendPacket(packet_resp.get(), sockfd);
+        esp_log(kInfoLogConfig, TAG, "After load3");
         wifiRestart();
+        esp_log(kInfoLogConfig, TAG, "After load4");
     }
 
     void applyUvIsActive(
       const WSPacket::PacketUvIsActive* packet,
-      [[maybe_unused]] int sockfd) {
-        bool is_valid = true;
-        if (!uv_task_id_.has_value()) {
-            is_valid = false;
-        }
-        auto res = Scheduler::Scheduler::getRemainingTime(uv_task_id_.value());
-        if (!res.has_value()) {
-            is_valid = false;
-        }
-        if (is_valid) {
-            std::unique_ptr<WSPacket::PacketRespBase> packet_resp =
-              std::make_unique<WSPacket::PacketRespUvIsActive>(
-                res.value(),
-                1,
-                WSPacket ::RespType::OK);
-            instance_->http_server_.sendPacket(packet_resp.get(), sockfd);
-            return;
-
-        } else {
-            std::unique_ptr<WSPacket::PacketRespBase> packet_resp =
-              std::make_unique<WSPacket::PacketRespUvIsActive>(
-                0,
-                0,
-                WSPacket ::RespType::OK);
-            instance_->http_server_.sendPacket(packet_resp.get(), sockfd);
-            return;
-        }
-    }
+      [[maybe_unused]] int sockfd);
 
     void applyUvSetJob(
       const WSPacket::PacketUvSetJob* packet,
-      [[maybe_unused]] int sockfd) {
-        esp_log(
-          kInfoLogConfig,
-          "CORE",
-          "Setting UV job to %d %f sec",
-          packet->duration,
-          packet->state);
-
-        uv_pin->write(packet->state);
-        WSPacket::RespType result = WSPacket::RespType::OK;
-        if (packet->state) {
-            Scheduler::Status task_status;
-            int task_id;
-
-            std::tie(task_status, task_id) = Scheduler::Scheduler::schedule(
-              TimeConv::sec(packet->duration),
-              true,
-              [&]() {
-                  this->uv_pin->write(false);
-                  ;
-              });
-            if (uv_task_id_.has_value()) {
-                Scheduler::Scheduler::forceExecute(uv_task_id_.value());
-                Scheduler::Scheduler::unschedule(uv_task_id_.value());
-                result = WSPacket::RespType::WARNING;
-                uv_task_id_ = std::nullopt;
-            }
-
-            if (task_status == Scheduler::Status::ERROR) {
-                esp_log(kErrorLogConfig, "CORE", "Failed to schedule UV job");
-                Scheduler::Scheduler::unschedule(task_id);
-                result = WSPacket::RespType::ERROR;
-            } else {
-                uv_task_id_ = task_id;
-            }
-        }
-        std::unique_ptr<WSPacket::PacketRespBase> packet_resp =
-          std::make_unique<WSPacket::PacketRespUvSetJob>(result);
-        instance_->http_server_.sendPacket(packet_resp.get(), sockfd);
-    }
+      [[maybe_unused]] int sockfd);
 
     std::unique_ptr<Wifi::Base> wifi_module_;
     std::shared_ptr<GPIO::GpioBasicWrapper> uv_pin;
-    HttpServerWrapper http_server_;
+    std::unique_ptr<HttpServerWrapper> http_server_;
     std::optional<int> uv_task_id_ = std::nullopt;
 
     inline static Core* instance_ = nullptr;

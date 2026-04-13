@@ -38,7 +38,7 @@ std::shared_ptr<PacketBase> parseUvIsActive(const JsonWrapper& json) {
 }
 
 std::shared_ptr<PacketBase> parseUvSetJob(const JsonWrapper& json) {
-    auto duration_opt = json.getBool("duration");
+    auto duration_opt = json.getNumber("duration");
     auto state_opt = json.getBool("state");
 
 #ifdef ENABLE_SAFENET
@@ -49,7 +49,12 @@ std::shared_ptr<PacketBase> parseUvSetJob(const JsonWrapper& json) {
         return {};
     }
 #endif
-
+    esp_log(
+      kInfoLogConfig,
+      "PARSER",
+      "Parsed UV_SET_JOB with duration %d and state %d",
+      duration_opt.value(),
+      state_opt.value());
     std::shared_ptr<PacketBase> packet =
       std::make_shared<PacketUvSetJob>(duration_opt.value(), state_opt.value());
     return packet;
@@ -79,7 +84,7 @@ std::shared_ptr<PacketBase> parse(const JsonWrapper& json) {
         case PacketType::CREDENTIALS: {
             return parseCredentials(json);
         }
-        case PacketType::UV_IS_ACTIVE: {
+        case PacketType::UV_GET_STATUS: {
             return parseUvIsActive(json);
         }
         case PacketType::UV_SET_JOB: {

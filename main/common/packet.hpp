@@ -11,7 +11,7 @@ namespace WSPacket {
 enum class PacketType : int {
     LED = 0,
     CREDENTIALS,
-    UV_IS_ACTIVE,
+    UV_GET_STATUS,
     UV_SET_JOB,
     COUNT
 };
@@ -35,11 +35,39 @@ enum class ParseResult : uint8_t {
     NOT_SUPPORTED,
     ERROR
 };
+// UV_GET_STATUS request {packet_type: 2}
+// UV_SET_JOB  request
+//{
+// packet_type: 3,
+// (float)duration: 15.2(seconds);
+// (bool) state: true/false(true - perform job, false - stop the job);
+// }
+
+// enum class RespType : int {
+//     OK = 0,
+//     ERROR = 1,
+//     BUSY = 2,
+//     WARNING,   task was completed successful but with some issues (e.g. a pending
+//     UV job was force executed to make way for the new one)
+//     COUNT = std::numeric_limits<int>::max()
+// };
+// UV_GET_STATUS response {
+// packet_type: 2
+// (RespType)response: RespType
+// (uint64_t) remaining_time: time
+// (bool) state: true/false
+// }
+
+// UV_SET_JOB  response
+// {
+// packet_type: 3,
+// (RespType)response: RespType
+// }
 
 struct PacketBase {
     PacketType packet_type;
-    PacketBase(PacketType _type) : packet_type{_type} {}
 
+    PacketBase(PacketType _type) : packet_type{_type} {}
     virtual ~PacketBase() = default;
 };
 
@@ -55,10 +83,10 @@ struct PacketCredentials : public PacketBase {
     std::string ssid;
     std::string password;
 };
-// UV_IS_ACTIVE,
+// UV_GET_STATUS,
 // UV_SET_JOB,
 struct PacketUvIsActive : public PacketBase {
-    PacketUvIsActive() : PacketBase{PacketType::UV_IS_ACTIVE} {}
+    PacketUvIsActive() : PacketBase{PacketType::UV_GET_STATUS} {}
 };
 
 struct PacketUvSetJob : public PacketBase {
@@ -109,7 +137,7 @@ struct PacketRespCredentials : public PacketRespBase {
 
 struct PacketRespUvIsActive : public PacketRespBase {
     PacketRespUvIsActive(double _remaining_time, bool _state, RespType _resp)
-        : PacketRespBase{PacketType::UV_IS_ACTIVE, _resp},
+        : PacketRespBase{PacketType::UV_GET_STATUS, _resp},
           remaining_time(_remaining_time),
           state(_state) {}
 

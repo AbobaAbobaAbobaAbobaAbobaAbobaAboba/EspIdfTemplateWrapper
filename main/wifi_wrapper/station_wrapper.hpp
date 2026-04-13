@@ -37,7 +37,7 @@ class StationWrapper : public Base {
     std::string getIp();
 
     virtual void init() final;
-
+      ConnectionState getConnectionState() const { return connection_state_; }
   private:
     static void event_handler(
       void* arg,

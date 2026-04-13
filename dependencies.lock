@@ -40,4 +40,4 @@ direct_dependencies:
 - leeebo/esp-inih
 manifest_hash: 1bda37894b8dd2364f113376fbc027fb8260891749bf55c6c6da9e842f2a9913
 target: esp32
-version: 2.0.0
+version: 3.0.0

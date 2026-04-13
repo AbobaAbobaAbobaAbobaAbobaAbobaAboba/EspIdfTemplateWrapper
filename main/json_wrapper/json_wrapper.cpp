@@ -114,10 +114,32 @@ void JsonWrapper::addFloat(const char* key, float value) {
 
 // New read methods
 std::optional<bool> JsonWrapper::getBool(const char* key) const {
-    cJSON* item = cJSON_GetObjectItem(json_, key);
-    if (!item) {
+    if (!json_ || !key) {
+        esp_log(kErrorLogConfig, JsonWrapper::TAG, "getBool: key is null");
         return std::nullopt;
     }
+
+    cJSON* item = cJSON_GetObjectItem(json_, key);
+    if (!item) {
+        esp_log(
+          kErrorLogConfig,
+          JsonWrapper::TAG,
+          "getBool: item is null or not a bool: %d %d",
+          item == nullptr,
+          cJSON_IsBool(item));
+        return std::nullopt;
+    }
+
+    if (!cJSON_IsBool(item)) {
+        esp_log(
+          kErrorLogConfig,
+          JsonWrapper::TAG,
+          "getBool: item is null or not a bool: %d %d",
+          item == nullptr,
+          cJSON_IsBool(item));
+        return std::nullopt;
+    }
+
     return cJSON_IsTrue(item);
 }
 

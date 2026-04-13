@@ -43,19 +43,28 @@ void Core::init() {
     config_wrapper_.load();
     config_wrapper_.printContents();
     wifiRestart();
-
-    http_server_.startWebserver();
-    http_server_.registerCallback(&Core::applyPacket);
 }
 
 bool Core::wifiRestart() {
+    esp_log(kInfoLogConfig, TAG, "Restarting WiFi 0...");
+    if(http_server_) {
+        forceRestartEsp();
+    }
+    http_server_.reset();
+    esp_log(kInfoLogConfig, TAG, "Restarting WiFi 1...");
     if (!startStation()) {
         if (!startAp()) {
             throw std::runtime_error(
               "Failed to start WiFi in both Station and AP modes");
             return false;
+        } else {
+          esp_log(kInfoLogConfig, TAG, "Restarting WiFi 2...");
         }
     }
+    esp_log(kInfoLogConfig, TAG, "Restarting WiFi 3...");
+    http_server_ = std::make_unique<HttpServerWrapper>();
+    http_server_->startWebserver();
+    http_server_->registerCallback(&Core::applyPacket);
     wifi_module_->setTxPower(78);
     return true;
 }
@@ -69,6 +78,8 @@ bool Core::startAp() {
       config_wrapper_.get(std::string("ap"), std::string("ssid"), std::string(""));
     std::string password =
       config_wrapper_.get(std::string("ap"), std::string("password"), std::string(""));
+
+    esp_log(kInfoLogConfig, TAG, "Restarting WiFi 4 %s %s", ssid.c_str(), password.c_str());
     if (ssid.empty() || password.empty()) {
         esp_log(kWarnLogConfig, TAG, "Ap SSID or password is empty");
         return false;
@@ -94,9 +105,15 @@ bool Core::startStation() {
         esp_log(kWarnLogConfig, TAG, "Station SSID or password is empty");
         return false;
     }
+    ptr->connect(ssid, password, kMaxConnectionStationAttempts);
 
-    return ptr->connect(ssid, password, 5);
-}
+    while(ptr->getConnectionState() == Wifi::ConnectionState::CONNECTING) {
+      esp_log(kWarnLogConfig, TAG, "while loop");
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    esp_log(kWarnLogConfig, TAG, "after while loop");
+    return ptr->getConnectionState() == Wifi::ConnectionState::CONNECTED;
+  }
 
 void Core::applyPacket(
   std::shared_ptr<WSPacket::PacketBase> packet,
@@ -104,11 +121,13 @@ void Core::applyPacket(
     static_assert(
       4 == static_cast<int>(WSPacket::PacketType::COUNT),
       "PacketType::COUNT mismatch. Check if enough Packet structs exist");
+
     esp_log(
       kErrorLogConfig,
       "CORE",
       "Received packet: %d",
       static_cast<int>(packet->packet_type));
+
     switch (static_cast<WSPacket::PacketType>(packet->packet_type)) {
         case WSPacket::PacketType::LED: {
             WSPacket::PacketLED* led_packet =
@@ -124,11 +143,10 @@ void Core::applyPacket(
 
             break;
         }
-        case WSPacket::PacketType::UV_IS_ACTIVE: {
+        case WSPacket::PacketType::UV_GET_STATUS: {
             WSPacket::PacketUvIsActive* uv_is_active_packet =
               static_cast<WSPacket::PacketUvIsActive*>(packet.get());
             instance_->applyUvIsActive(uv_is_active_packet, sockfd);
-
             break;
         }
         case WSPacket::PacketType::UV_SET_JOB: {
@@ -159,5 +177,106 @@ void Core::applyLED(
     std::unique_ptr<WSPacket::PacketRespBase> packet =
       std::make_unique<WSPacket::PacketRespLED>(WSPacket::RespType::OK);
 
-    instance_->http_server_.sendPacket(packet.get(), sockfd);
+    if (!(instance_->http_server_)) {
+        esp_log(kErrorLogConfig, "CORE", "HTTP server is not initialized!");
+        return;
+    }
+    instance_->http_server_->sendPacket(packet.get(), sockfd);
+}
+
+void Core::applyUvIsActive(
+  const WSPacket::PacketUvIsActive* packet,
+  [[maybe_unused]] int sockfd) {
+    bool is_valid = true;
+    std::optional<uint64_t> res;
+    if (uv_task_id_.has_value()) {
+        res = Scheduler::Scheduler::getRemainingTime(uv_task_id_.value());
+
+    } else {
+        is_valid = false;
+    }
+
+    if (!res.has_value()) {
+        is_valid = false;
+    }
+    if (is_valid) {
+        int aboba = res.value();
+        esp_log(kErrorLogConfig, TAG, "aboba rem time %d!", aboba);
+        std::unique_ptr<WSPacket::PacketRespBase> packet_resp =
+          std::make_unique<WSPacket::PacketRespUvIsActive>(
+            res.value(),
+            1,
+            WSPacket ::RespType::OK);
+        if (!(instance_->http_server_)) {
+            esp_log(kErrorLogConfig, "CORE", "HTTP server is not initialized!");
+            return;
+        }
+        if (!(instance_->http_server_)) {
+            esp_log(kErrorLogConfig, "CORE", "HTTP server is not initialized!");
+            return;
+        }
+        instance_->http_server_->sendPacket(packet_resp.get(), sockfd);
+        return;
+
+    } else {
+        std::unique_ptr<WSPacket::PacketRespBase> packet_resp =
+          std::make_unique<WSPacket::PacketRespUvIsActive>(
+            0,
+            0,
+            WSPacket ::RespType::OK);
+        if (!(instance_->http_server_)) {
+            esp_log(kErrorLogConfig, "CORE", "HTTP server is not initialized!");
+            return;
+        }
+        instance_->http_server_->sendPacket(packet_resp.get(), sockfd);
+        return;
+    }
+}
+
+void Core::applyUvSetJob(
+  const WSPacket::PacketUvSetJob* packet,
+  [[maybe_unused]] int sockfd) {
+    esp_log(
+      kInfoLogConfig,
+      "CORE",
+      "Setting UV job to %f sec %d ",
+      packet->duration,
+      packet->state);
+
+    WSPacket::RespType result = WSPacket::RespType::OK;
+
+    if (uv_task_id_.has_value()) {
+        Scheduler::Scheduler::forceExecute(uv_task_id_.value());
+        Scheduler::Scheduler::unschedule(uv_task_id_.value());
+        result = WSPacket::RespType::WARNING;
+        uv_task_id_ = std::nullopt;
+    }
+
+    if (packet->state) {
+        Scheduler::Status task_status;
+        int task_id;
+
+        std::tie(task_status, task_id) =
+          Scheduler::Scheduler::schedule(TimeConv::sec(packet->duration), true, [&]() {
+              this->uv_pin->write(false);
+              ;
+          });
+
+        if (task_status == Scheduler::Status::ERROR) {
+            esp_log(kErrorLogConfig, "CORE", "Failed to schedule UV job");
+            Scheduler::Scheduler::unschedule(task_id);
+            result = WSPacket::RespType::ERROR;
+        } else {
+            uv_task_id_ = task_id;
+        }
+        uv_pin->write(packet->state);
+    }
+
+    std::unique_ptr<WSPacket::PacketRespBase> packet_resp =
+      std::make_unique<WSPacket::PacketRespUvSetJob>(result);
+    if (!(instance_->http_server_)) {
+        esp_log(kErrorLogConfig, "CORE", "HTTP server is not initialized!");
+        return;
+    }
+    instance_->http_server_->sendPacket(packet_resp.get(), sockfd);
 }

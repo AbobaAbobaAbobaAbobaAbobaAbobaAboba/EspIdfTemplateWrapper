@@ -6,6 +6,9 @@
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32"
   },
+  "C_Cpp.formatting": "clangFormat",
+  "C_Cpp.clang_format_style": "file",
+  "editor.formatOnSave": true,
   "idf.flashType": "JTAG",
   "files.associations": {
     "stdio.h": "c",

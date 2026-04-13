@@ -210,7 +210,7 @@ bool Scheduler::innerExecute(int id) {
         throw std::runtime_error(
           "Invalid task status was detected in scheduler while processing");
     }
-
+    esp_log(kInfoLogConfig, TAG, "Executing task %d", id);
     it->second.cb_();
 
     switch (it->second.task_type_) {
