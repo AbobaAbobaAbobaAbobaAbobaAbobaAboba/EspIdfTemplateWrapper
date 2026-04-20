@@ -72,6 +72,7 @@ class Core {
 
     std::unique_ptr<Wifi::Base> wifi_module_;
     std::shared_ptr<GPIO::GpioBasicWrapper> uv_pin;
+    std::shared_ptr<GPIO::GpioBasicWrapper> sound_pin;
     std::unique_ptr<HttpServerWrapper> http_server_;
     std::optional<int> uv_task_id_ = std::nullopt;
 

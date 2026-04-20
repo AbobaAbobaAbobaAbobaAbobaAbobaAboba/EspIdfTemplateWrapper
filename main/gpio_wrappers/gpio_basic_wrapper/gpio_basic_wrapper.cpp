@@ -113,6 +113,8 @@ void GpioBasicWrapper::configurePin(gpio_mode_t mode, PullMode pull_mode) {
             io_conf_.pull_down_en = GPIO_PULLDOWN_ENABLE;
             break;
     }
+
+
     esp_err_t ret = gpio_config(&io_conf_);
 #ifdef ENABLE_SAFENET
     if (ret != ESP_OK) {

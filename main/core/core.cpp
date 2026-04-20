@@ -39,6 +39,10 @@ void Core::init() {
       GPIO_NUM_18,
       GPIO_MODE_OUTPUT,
       GPIO::PullMode::PULL_DOWN);
+    sound_pin = GPIO::GpioBasicWrapper::createPin(
+      GPIO_NUM_19,
+      GPIO_MODE_OUTPUT,
+      GPIO::PullMode::PULL_DOWN);
 
     config_wrapper_.load();
     config_wrapper_.printContents();
@@ -259,8 +263,12 @@ void Core::applyUvSetJob(
         std::tie(task_status, task_id) =
           Scheduler::Scheduler::schedule(TimeConv::sec(packet->duration), true, [&]() {
               this->uv_pin->write(false);
-              ;
-          });
+              this->sound_pin->write(true);
+              // Schedule the sound off after 1 second (non-blocking)
+            Scheduler::Scheduler::schedule(TimeConv::ms(1000), true, [&]() {
+              this->sound_pin->write(false);
+            });
+        });
 
         if (task_status == Scheduler::Status::ERROR) {
             esp_log(kErrorLogConfig, "CORE", "Failed to schedule UV job");
@@ -269,7 +277,14 @@ void Core::applyUvSetJob(
         } else {
             uv_task_id_ = task_id;
         }
+        for(int i = 0; i < 3; ++i) {
+          this->sound_pin->write(true);
+          vTaskDelay(pdMS_TO_TICKS(100));
+          this->sound_pin->write(false);
+          vTaskDelay(pdMS_TO_TICKS(100));
+        }
         uv_pin->write(packet->state);
+
     }
 
     std::unique_ptr<WSPacket::PacketRespBase> packet_resp =

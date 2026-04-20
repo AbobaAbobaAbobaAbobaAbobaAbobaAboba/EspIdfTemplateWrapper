@@ -1,0 +1,43 @@
+---
+BasedOnStyle: Google
+IndentWidth: 4
+DerivePointerAlignment: false
+PointerAlignment: Left
+QualifierAlignment: Left
+IncludeBlocks: Merge
+ColumnLimit: 88
+Standard: 'Latest'
+
+# Format everything long at each line
+AlignAfterOpenBracket: AlwaysBreak
+AllowShortEnumsOnASingleLine: false
+BinPackArguments: false
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+PackConstructorInitializers: CurrentLine
+AllowShortFunctionsOnASingleLine: InlineOnly
+
+# Alignment
+AlignConsecutiveMacros: AcrossEmptyLinesAndComments
+AlignConsecutiveBitFields: AcrossEmptyLinesAndComments
+BitFieldColonSpacing: Before 
+AlignTrailingComments: true
+ContinuationIndentWidth: 2
+AccessModifierOffset: -2
+BreakBeforeBinaryOperators: NonAssignment
+
+IncludeCategories:
+  # Headers in <> without extension.
+  - Regex:           '<([A-Za-z0-9\Q/-_\E])+>'
+    Priority:        4
+  # Headers in <> from specific external libraries.
+  - Regex:           '<(|boost|gst|glib)\/'
+    Priority:        3
+  # Headers in <> with extension.
+  - Regex:           '<([A-Za-z0-9.\Q/-_\E])+>'
+    Priority:        2
+  # Headers in "" with extension.
+  - Regex:           '"([A-Za-z0-9.\Q/-_\E])+"'
+    Priority:        1
+...

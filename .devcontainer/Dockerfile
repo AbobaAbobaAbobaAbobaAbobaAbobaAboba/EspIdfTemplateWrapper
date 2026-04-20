@@ -11,3 +11,8 @@ RUN echo "source /opt/esp/idf/export.sh > /dev/null 2>&1" >> ~/.bashrc
 ENTRYPOINT [ "/opt/esp/entrypoint.sh" ]
 
 CMD ["/bin/bash", "-c"]
+
+
+COPY .clangd /workspaces/project-name/
+COPY .clang-format /workspaces/project-name/
+COPY .clang-tidy /workspaces/project-name/
