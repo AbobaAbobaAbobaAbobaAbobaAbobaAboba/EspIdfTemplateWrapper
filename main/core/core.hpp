@@ -40,7 +40,7 @@ class Core {
       std::shared_ptr<WSPacket::PacketBase> packet,
       [[maybe_unused]] int sockfd);
 
-    void applyLED(const WSPacket::PacketLED* packet, [[maybe_unused]] int sockfd);
+    void applyLED(const WSPacket::PacketLed* packet, [[maybe_unused]] int sockfd);
     void applyCredentials(
       const WSPacket::PacketCredentials* packet,
       [[maybe_unused]] int sockfd) {
@@ -61,14 +61,6 @@ class Core {
         wifiRestart();
         esp_log(kInfoLogConfig, TAG, "After load4");
     }
-
-    void applyUvIsActive(
-      const WSPacket::PacketUvIsActive* packet,
-      [[maybe_unused]] int sockfd);
-
-    void applyUvSetJob(
-      const WSPacket::PacketUvSetJob* packet,
-      [[maybe_unused]] int sockfd);
 
     std::unique_ptr<Wifi::Base> wifi_module_;
     std::shared_ptr<GPIO::GpioBasicWrapper> uv_pin;

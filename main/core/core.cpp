@@ -123,7 +123,7 @@ void Core::applyPacket(
   std::shared_ptr<WSPacket::PacketBase> packet,
   [[maybe_unused]] int sockfd) {
     static_assert(
-      4 == static_cast<int>(WSPacket::PacketType::COUNT),
+      2 == static_cast<int>(WSPacket::PacketType::COUNT),
       "PacketType::COUNT mismatch. Check if enough Packet structs exist");
 
     esp_log(
@@ -134,8 +134,8 @@ void Core::applyPacket(
 
     switch (static_cast<WSPacket::PacketType>(packet->packet_type)) {
         case WSPacket::PacketType::LED: {
-            WSPacket::PacketLED* led_packet =
-              static_cast<WSPacket::PacketLED*>(packet.get());
+            WSPacket::PacketLed* led_packet =
+              static_cast<WSPacket::PacketLed*>(packet.get());
             instance_->applyLED(led_packet, sockfd);
 
             break;
@@ -144,19 +144,6 @@ void Core::applyPacket(
             WSPacket::PacketCredentials* led_packet =
               static_cast<WSPacket::PacketCredentials*>(packet.get());
             instance_->applyCredentials(led_packet, sockfd);
-
-            break;
-        }
-        case WSPacket::PacketType::UV_GET_STATUS: {
-            WSPacket::PacketUvIsActive* uv_is_active_packet =
-              static_cast<WSPacket::PacketUvIsActive*>(packet.get());
-            instance_->applyUvIsActive(uv_is_active_packet, sockfd);
-            break;
-        }
-        case WSPacket::PacketType::UV_SET_JOB: {
-            WSPacket::PacketUvSetJob* uv_is_active_packet =
-              static_cast<WSPacket::PacketUvSetJob*>(packet.get());
-            instance_->applyUvSetJob(uv_is_active_packet, sockfd);
 
             break;
         }
@@ -171,7 +158,7 @@ void Core::applyPacket(
 }
 
 void Core::applyLED(
-  const WSPacket::PacketLED* led_packet,
+  const WSPacket::PacketLed* led_packet,
   [[maybe_unused]] int sockfd) {
     esp_log(
       kInfoLogConfig,
@@ -179,119 +166,11 @@ void Core::applyLED(
       "LED state changed to: %s",
       led_packet->state ? "ON" : "OFF");
     std::unique_ptr<WSPacket::PacketRespBase> packet =
-      std::make_unique<WSPacket::PacketRespLED>(WSPacket::RespType::OK);
+      std::make_unique<WSPacket::PacketRespLed>(WSPacket::RespType::OK);
 
     if (!(instance_->http_server_)) {
         esp_log(kErrorLogConfig, "CORE", "HTTP server is not initialized!");
         return;
     }
     instance_->http_server_->sendPacket(packet.get(), sockfd);
-}
-
-void Core::applyUvIsActive(
-  const WSPacket::PacketUvIsActive* packet,
-  [[maybe_unused]] int sockfd) {
-    bool is_valid = true;
-    std::optional<uint64_t> res;
-    if (uv_task_id_.has_value()) {
-        res = Scheduler::Scheduler::getRemainingTime(uv_task_id_.value());
-
-    } else {
-        is_valid = false;
-    }
-
-    if (!res.has_value()) {
-        is_valid = false;
-    }
-    if (is_valid) {
-        int aboba = res.value();
-        esp_log(kErrorLogConfig, TAG, "aboba rem time %d!", aboba);
-        std::unique_ptr<WSPacket::PacketRespBase> packet_resp =
-          std::make_unique<WSPacket::PacketRespUvIsActive>(
-            res.value(),
-            1,
-            WSPacket ::RespType::OK);
-        if (!(instance_->http_server_)) {
-            esp_log(kErrorLogConfig, "CORE", "HTTP server is not initialized!");
-            return;
-        }
-        if (!(instance_->http_server_)) {
-            esp_log(kErrorLogConfig, "CORE", "HTTP server is not initialized!");
-            return;
-        }
-        instance_->http_server_->sendPacket(packet_resp.get(), sockfd);
-        return;
-
-    } else {
-        std::unique_ptr<WSPacket::PacketRespBase> packet_resp =
-          std::make_unique<WSPacket::PacketRespUvIsActive>(
-            0,
-            0,
-            WSPacket ::RespType::OK);
-        if (!(instance_->http_server_)) {
-            esp_log(kErrorLogConfig, "CORE", "HTTP server is not initialized!");
-            return;
-        }
-        instance_->http_server_->sendPacket(packet_resp.get(), sockfd);
-        return;
-    }
-}
-
-void Core::applyUvSetJob(
-  const WSPacket::PacketUvSetJob* packet,
-  [[maybe_unused]] int sockfd) {
-    esp_log(
-      kInfoLogConfig,
-      "CORE",
-      "Setting UV job to %f sec %d ",
-      packet->duration,
-      packet->state);
-
-    WSPacket::RespType result = WSPacket::RespType::OK;
-
-    if (uv_task_id_.has_value()) {
-        Scheduler::Scheduler::forceExecute(uv_task_id_.value());
-        Scheduler::Scheduler::unschedule(uv_task_id_.value());
-        result = WSPacket::RespType::WARNING;
-        uv_task_id_ = std::nullopt;
-    }
-
-    if (packet->state) {
-        Scheduler::Status task_status;
-        int task_id;
-
-        std::tie(task_status, task_id) =
-          Scheduler::Scheduler::schedule(TimeConv::sec(packet->duration), true, [&]() {
-              this->uv_pin->write(false);
-              this->sound_pin->write(true);
-              // Schedule the sound off after 1 second (non-blocking)
-            Scheduler::Scheduler::schedule(TimeConv::ms(1000), true, [&]() {
-              this->sound_pin->write(false);
-            });
-        });
-
-        if (task_status == Scheduler::Status::ERROR) {
-            esp_log(kErrorLogConfig, "CORE", "Failed to schedule UV job");
-            Scheduler::Scheduler::unschedule(task_id);
-            result = WSPacket::RespType::ERROR;
-        } else {
-            uv_task_id_ = task_id;
-        }
-        for(int i = 0; i < 3; ++i) {
-          this->sound_pin->write(true);
-          vTaskDelay(pdMS_TO_TICKS(100));
-          this->sound_pin->write(false);
-          vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        uv_pin->write(packet->state);
-
-    }
-
-    std::unique_ptr<WSPacket::PacketRespBase> packet_resp =
-      std::make_unique<WSPacket::PacketRespUvSetJob>(result);
-    if (!(instance_->http_server_)) {
-        esp_log(kErrorLogConfig, "CORE", "HTTP server is not initialized!");
-        return;
-    }
-    instance_->http_server_->sendPacket(packet_resp.get(), sockfd);
 }
