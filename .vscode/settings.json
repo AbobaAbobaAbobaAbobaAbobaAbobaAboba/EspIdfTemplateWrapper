@@ -1,11 +1,15 @@
 {
-  "idf.port": "/dev/ttyUSB1",
+  "idf.port": "/dev/ttyUSB0",
   "idf.openOcdConfigs": [
     "board/esp32-wrover-kit-3.3v.cfg"
   ],
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32"
   },
+  "C_Cpp.formatting": "clangFormat",
+  "C_Cpp.clang_format_path": "/usr/bin/clang-format",
+  "C_Cpp.clang_format_style": "file",
+  "editor.formatOnSave": true,
   "idf.flashType": "JTAG",
   "files.associations": {
     "stdio.h": "c",
@@ -114,5 +118,5 @@
   "idf.pythonInstallPath": "/usr/bin/python3",
   "idf.monitorPort": "/dev/ttyUSB1",
   "C_Cpp.errorSquiggles": "Disabled",
-  "idf.currentSetup": "/home/kp/esp/v5.5.1/esp-idf"
+  "idf.currentSetup": "/opt/esp/idf"
 }

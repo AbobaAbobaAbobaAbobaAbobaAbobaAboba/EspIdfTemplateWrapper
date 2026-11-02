@@ -3,7 +3,7 @@
 #include "../scheduler/scheduler.hpp"
 #include <driver/gpio.h>
 void initializeSystem() {
-    // System initialization
+
 
     esp_err_t err = nvs_flash_init();
     ESP_ERROR_CHECK(err);

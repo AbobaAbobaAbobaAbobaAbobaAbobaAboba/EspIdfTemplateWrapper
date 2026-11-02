@@ -50,8 +50,10 @@ class HttpServerWrapper {
     void registerCallback(Callback callback) { callback_ = callback; }
     void invokeCallback(std::shared_ptr<WSPacket::PacketBase> packet, int sockfd);
     esp_err_t sendPacket(const WSPacket::PacketRespBase* packet, int sockfd);
+    void setRestarting(bool restarting) { is_wifi_restarting_ = restarting; }
 
   private:
+    std::atomic<bool> is_wifi_restarting_ = false;
     static esp_err_t onSocketOpened(httpd_handle_t hd, int sockfd);
 
     static esp_err_t root_get_handler(httpd_req_t* req);

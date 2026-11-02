@@ -45,13 +45,14 @@ class ApWrapper : public Base {
       esp_event_base_t event_base,
       int32_t event_id,
       void* event_data);
-
     void prepareCredentials(
       const std::string& ssid,
       const std::string& password,
       uint8_t channel,
       wifi_auth_mode_t authmode,
       uint8_t max_connections);
+
+    void aboba() { std::cout << "hui!!" << std::endl; }
 
     void setCustomIp();
 
@@ -69,5 +70,5 @@ class ApWrapper : public Base {
     wifi_config_t wifi_config_ = {};
     static constexpr TagType TAG = "wifi_station";
 };
-};      // namespace Wifi
+};  // namespace Wifi
 #endif  // wifi_station_HPP

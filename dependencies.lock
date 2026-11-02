@@ -12,7 +12,7 @@ dependencies:
   idf:
     source:
       type: idf
-    version: 6.0.0
+    version: 6.0.2
   joltwallet/littlefs:
     component_hash: 150ca47225f7c9917f7f610a5f85e5e93fe3c15402234c23496ff045ad558b0b
     dependencies:
@@ -40,4 +40,4 @@ direct_dependencies:
 - leeebo/esp-inih
 manifest_hash: 1bda37894b8dd2364f113376fbc027fb8260891749bf55c6c6da9e842f2a9913
 target: esp32
-version: 2.0.0
+version: 3.0.0

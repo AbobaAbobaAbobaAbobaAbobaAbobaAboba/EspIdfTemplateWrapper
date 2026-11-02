@@ -37,6 +37,7 @@ class StationWrapper : public Base {
     std::string getIp();
 
     virtual void init() final;
+    ConnectionState getConnectionState() const { return connection_state_; }
 
   private:
     static void event_handler(
@@ -44,7 +45,7 @@ class StationWrapper : public Base {
       esp_event_base_t event_base,
       int32_t event_id,
       void* event_data);
-
+    void aboba() {     std::cout << "hui!" << std::endl; }
     void resetAttempts();
     void updateConnectionState(ConnectionState new_state);
 
@@ -66,5 +67,5 @@ class StationWrapper : public Base {
     wifi_config_t wifi_config_ = {};
     static constexpr TagType TAG = "wifi_station";
 };
-};      // namespace Wifi
+};  // namespace Wifi
 #endif  // wifi_station_HPP

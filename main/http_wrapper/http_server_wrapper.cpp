@@ -1,6 +1,5 @@
 #include "http_server_wrapper.hpp"
-#include "../common/packet_construct.hpp"
-#include "../common/packet_parse.hpp"
+#include "../common/packet.hpp"
 #include "../wifi_wrapper/wifi_base.hpp"
 void HttpServerWrapper::init() {
     exists_ = true;

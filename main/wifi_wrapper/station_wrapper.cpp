@@ -17,7 +17,7 @@ bool StationWrapper::connect(
       "Attempting to connect to %s with pass %s \n",
       wifi_config_.sta.ssid,
       wifi_config_.sta.password);
-
+    updateConnectionState(ConnectionState::CONNECTING);
     return prepareWifi();
 }
 bool StationWrapper::waitForConnected() {
@@ -184,7 +184,7 @@ bool StationWrapper::prepareWifi() {
 void StationWrapper::handleWifiStart() {
     esp_log(kInfoLogConfig, "wifi_station", "WiFi started, connecting to AP...");
     esp_wifi_connect();
-    updateConnectionState(ConnectionState::CONNECTING);
+
     ++current_attempt_;
 }
 void StationWrapper::handleWifiDisconnect() {
